@@ -1,0 +1,131 @@
+{
+  "users": [
+    {
+      "id": "USR-SUPERADMIN",
+      "client_id": null,
+      "name": "Master Platform Admin",
+      "email": "admin@whatsappplatform.io",
+      "password_hash": "admin123",
+      "role": "super_admin",
+      "status": "active",
+      "created_at": "2026-09-29T12:00:00.000Z",
+      "updated_at": "2026-09-29T12:00:00.000Z"
+    },
+    {
+      "id": "USR-CLT1-ADMIN",
+      "client_id": "CLT-00001",
+      "name": "Business Owner",
+      "email": "user@mybusiness.com",
+      "password_hash": "client123",
+      "role": "client_admin",
+      "status": "active",
+      "created_at": "2026-09-29T12:00:00.000Z",
+      "updated_at": "2026-09-29T12:00:00.000Z"
+    }
+  ],
+  "plans": [
+    {
+      "id": "plan_starter",
+      "name": "Starter Business",
+      "monthly_price": 49,
+      "message_limit": 10000,
+      "api_rate_limit_per_min": 60,
+      "initial_marketing_credits: 5000,
+      "initial_utility_credits": 5000,
+      "features": ["1 WhatsApp Phone", "CSV Import", "Standard Webhooks", "Analytics"]
+    },
+    {
+      "id": "plan_growth",
+      "name": "Growth Pro",
+      "monthly_price": 129,
+      "message_limit": 50000,
+      "api_rate_limit_per_min": 200,
+      "initial_marketing_credits": 30000,
+      "initial_utility_credits": 20000,
+      "features": ["3 Phone Numbers", "Bulk Scheduler", "Priority Webhooks", "API Access", "Live Chat Desk"]
+    },
+    {
+      "id": "plan_enterprise",
+      "name": "Enterprise Scale",
+      "monthly_price": 399,
+      "message_limit": 500000,
+      "api_rate_limit_per_min": 600,
+      "initial_marketing_credits": 100000,
+      "initial_utility_credits": 100000,
+      "features": ["Dedicated Throughput", "Unlimited Contacts", "24/7 SLA", "Custom Webhooks", "Audit Compliance"]
+    }
+  ],
+  "clients": [
+    {
+      "id": "CLT-00001",
+      "company_name": "My WhatsApp Business",
+      "email": "user@mybusiness.com",
+      "phone": "+15550000000",
+      "plan_id": "plan_enterprise",
+      "status": "active",
+      "marketing_credits": 100000,
+      "marketing_credits_used": 0,
+      "utility_credits": 100000,
+      "utility_credits_used": 0,
+      "campaign_message_limit": 500000,
+      "campaign_messages_sent": 0,
+      "api_token": "waba_live_livebusinesskey2026",
+      "api_token_created_at": "2026-09-29T12:00:00.000Z",
+      "api_status": "active",
+      "created_at": "2026-09-29T12:00:00.000Z",
+      "updated_at": "2026-09-29T12:00:00.000Z"
+    }
+  ],
+  "whatsapp_accounts": [
+    {
+      "id": "WA-00001",
+      "client_id": "CLT-00001",
+      "phone_number": "",
+      "display_name": "My WhatsApp Business",
+      "phone_number_id": "",
+      "waba_id": "",
+      "business_id": "",
+      "meta_access_token": "",
+      "app_secret": "",
+      "webhook_verify_token": "meta_verify_token_secure_2026",
+      "quality_rating": "GREEN",
+      "status": "CONNECTED",
+      "created_at": "2026-09-29T12:00:00.000Z",
+      "updated_at": "2026-09-29T12:00:00.000Z"
+    }
+  ],
+  "contact_groups": [],
+  "contacts": [],
+  "templates": [],
+  "campaigns": [],
+  "campaign_messages": [],
+  "chat_messages": [],
+  "credit_transactions": [
+    {
+      "id": "TXN-001",
+      "client_id": "CLT-00001",
+      "credit_type": "marketing",
+      "transaction_type": "Credit Added",
+      "amount": 100000,
+      "balance_before": 0,
+      "balance_after": 100000,
+      "description": "Account activation credit grant: 100,000 Marketing Credits",
+      "created_at": "2026-09-29T12:00:00.000Z"
+    },
+    {
+      "id": "TXN-002",
+      "client_id": "CLT-00001",
+      "credit_type": "utility",
+      "transaction_type": "Credit Added",
+      "amount": 100000,
+      "balance_before": 0,
+      "balance_after": 100000,
+      "description": "Account activation credit grant: 100,000 Utility Credits",
+      "created_at": "2026-09-29T12:00:00.000Z"
+    }
+  ],
+  "api_logs": [],
+  "webhook_logs": [],
+  "audit_logs": [],
+  "admin_impersonation_logs": []
+}

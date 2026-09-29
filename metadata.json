@@ -1,0 +1,6 @@
+{
+  "name": "Meta WhatsApp Multi-Client Campaign Platform",
+  "description": "Enterprise multi-client WhatsApp Business Cloud API campaign management SaaS platform with isolated tenant environments, bulk personalization, credit ledger, and developer APIs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
