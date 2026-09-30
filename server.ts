@@ -1,7 +1,10 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import { db, User, Client, Plan } from './server/db';
 import { CreditService } from './server/services/credit';
 import { WhatsAppCloudApiService } from './server/services/whatsapp';
@@ -9,8 +12,11 @@ import { ContactService } from './server/services/contact';
 import { ImportService } from './server/services/import';
 import { CampaignService } from './server/services/campaign';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -983,6 +989,7 @@ app.put('/api/admin/clients/:id/whatsapp', authenticateSession, requireSuperAdmi
     waba_id: req.body.waba_id,
     business_id: req.body.business_id,
     meta_access_token: req.body.meta_access_token,
+    app_secret: req.body.app_secret !== undefined ? req.body.app_secret : existing?.app_secret || '',
     webhook_verify_token: req.body.webhook_verify_token || `meta_verify_${clientId.toLowerCase()}`,
     quality_rating: req.body.quality_rating || 'GREEN',
     status: req.body.status || 'CONNECTED',
@@ -1265,26 +1272,112 @@ app.get('/api/v1/templates', authenticateClientApiToken, (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 5. META WHATSAPP WEBHOOK ENDPOINT (/api/v1/webhook)
+// 5. META WHATSAPP WEBHOOK ENDPOINTS
 // -------------------------------------------------------------
+// Supported paths for Meta Webhooks
+const WEBHOOK_PATHS = ['/api/v1/webhook', '/api/webhook', '/webhook'];
+
 // Verification challenge for Meta Developer portal
-app.get('/api/v1/webhook', (req, res) => {
+app.get(WEBHOOK_PATHS, (req, res) => {
   const mode = req.query['hub.mode'] as string;
   const token = req.query['hub.verify_token'] as string;
   const challenge = req.query['hub.challenge'] as string;
 
+  console.log(`[Meta Webhook] GET Verification attempt on ${req.path} (token: ${token || 'none'})`);
+
   const verify = WhatsAppCloudApiService.verifyWebhook(mode, token, challenge);
   if (verify.valid) {
-    return res.status(200).send(verify.challenge);
+    console.log('[Meta Webhook] Verification PASSED — returning challenge to Meta');
+    return res.status(200).type('text/plain').send(verify.challenge);
   }
+  console.warn('[Meta Webhook] Verification FAILED — mode or token mismatch');
   return res.status(403).send('Forbidden');
 });
 
 // Incoming webhook status & message events from Meta
-app.post('/api/v1/webhook', (req, res) => {
+app.post(WEBHOOK_PATHS, (req, res) => {
   const payload = req.body;
+  console.log(`[Meta Webhook] POST event received on ${req.path}`);
   const results = WhatsAppCloudApiService.processWebhookPayload(payload);
+  console.log(`[Meta Webhook] Successfully processed ${results.length} action(s)`);
   res.status(200).json({ success: true, processed: results.length });
+});
+
+// Super Admin Webhook diagnostic & connection info (Clients CANNOT access - Super Admin only)
+app.get('/api/admin/webhook-info', authenticateSession, requireSuperAdmin, (req, res) => {
+  const clientId = (req.query.clientId as string) || req.clientAccount?.id || 'CLT-00001';
+  const wa = db.getWhatsAppAccount(clientId);
+  const webhookLogs = db.getWebhookLogs(clientId);
+  const host = req.get('x-forwarded-host') || req.get('host') || req.hostname;
+  const protocol = req.get('x-forwarded-proto') || (req.protocol === 'https' ? 'https' : 'http');
+
+  res.json({
+    success: true,
+    callback_url: `${protocol}://${host}/api/v1/webhook`,
+    alternative_url: `${protocol}://${host}/webhook`,
+    verify_token: wa?.webhook_verify_token || 'meta_verify_token_secure_2026',
+    status: wa?.status || 'CONNECTED',
+    phone_number: wa?.phone_number,
+    phone_number_id: wa?.phone_number_id,
+    waba_id: wa?.waba_id,
+    recent_logs: webhookLogs.slice(0, 10),
+    total_events: webhookLogs.length,
+    last_event_time: webhookLogs[0]?.created_at || null
+  });
+});
+
+// Super Admin test inbound message simulator (Restricted to Super Admin)
+app.post('/api/admin/webhook-test', authenticateSession, requireSuperAdmin, (req, res) => {
+  const clientId = (req.body.clientId as string) || req.clientAccount?.id || 'CLT-00001';
+  const wa = db.getWhatsAppAccount(clientId);
+  const { phone = '+919067348975', text = 'Hello from WhatsApp! Testing incoming chat receipt.' } = req.body;
+
+  const testPayload = {
+    object: 'whatsapp_business_account',
+    entry: [
+      {
+        id: wa?.waba_id || '925211430661331',
+        changes: [
+          {
+            value: {
+              messaging_product: 'whatsapp',
+              metadata: {
+                display_phone_number: wa?.phone_number || '15553602693',
+                phone_number_id: wa?.phone_number_id || '1202009439672545'
+              },
+              contacts: [
+                {
+                  profile: { name: 'Customer Test' },
+                  wa_id: phone.replace(/\D/g, '')
+                }
+              ],
+              messages: [
+                {
+                  from: phone.replace(/\D/g, ''),
+                  id: `wamid.test_${Date.now()}`,
+                  timestamp: Math.floor(Date.now() / 1000).toString(),
+                  text: { body: text },
+                  type: 'text'
+                }
+              ]
+            },
+            field: 'messages'
+          }
+        ]
+      }
+    ]
+  };
+
+  const results = WhatsAppCloudApiService.processWebhookPayload(testPayload, clientId);
+  res.json({ success: true, message: 'Test webhook event processed successfully', results });
+});
+
+// Explicitly deny client access to webhook endpoints
+app.all('/api/client/webhook*', authenticateSession, (_req, res) => {
+  res.status(403).json({
+    success: false,
+    error: 'Access Denied: Webhook configuration is restricted to Super Admin only.'
+  });
 });
 
 // Webhook simulation endpoint for Admin testing
@@ -1316,19 +1409,27 @@ app.post('/api/admin/simulate-webhook-status', authenticateSession, requireSuper
 // VITE DEV MIDDLEWARE INTEGRATION
 // -------------------------------------------------------------
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.resolve(__dirname, 'dist');
+  const indexHtml = path.join(distPath, 'index.html');
+
+  if (process.env.NODE_ENV === 'production' || fs.existsSync(indexHtml)) {
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+    }
+    app.get('*', (_req, res) => {
+      if (fs.existsSync(indexHtml)) {
+        res.sendFile(indexHtml);
+      } else {
+        res.status(200).send('Platform starting up...');
+      }
+    });
+  } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

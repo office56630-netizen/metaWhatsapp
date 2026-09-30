@@ -85,6 +85,12 @@ export interface Contact {
   custom3?: string;
   custom4?: string;
   custom5?: string;
+  custom6?: string;
+  custom7?: string;
+  custom8?: string;
+  custom9?: string;
+  custom10?: string;
+  variables?: Record<string, string>;
   status: 'active' | 'opt_out' | 'invalid';
   created_at: string;
   updated_at: string;
@@ -509,8 +515,8 @@ class DatabaseEngine {
   }
 
   public findContactByPhone(clientId: string, phone: string) {
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-    return this.data.contacts.find(c => c.client_id === clientId && c.phone.replace(/[\s\-\(\)]/g, '') === cleanPhone);
+    const cleanDigits = phone.replace(/\D/g, '');
+    return this.data.contacts.find(c => c.client_id === clientId && c.phone.replace(/\D/g, '') === cleanDigits);
   }
 
   public insertContact(contact: Contact) {
@@ -832,7 +838,7 @@ class DatabaseEngine {
     const groups = this.data.contact_groups.filter(g => g.client_id === clientId);
 
     const contactMap = new Map<string, Contact>();
-    contacts.forEach(c => contactMap.set(c.phone.replace(/[\s\-\(\)\.\[\]]/g, ''), c));
+    contacts.forEach(c => contactMap.set(c.phone.replace(/\D/g, ''), c));
 
     const groupMap = new Map<string, string>();
     groups.forEach(g => groupMap.set(g.id, g.name));
@@ -840,7 +846,7 @@ class DatabaseEngine {
     // Group messages by customer phone
     const convMap = new Map<string, ChatMessage[]>();
     messages.forEach(m => {
-      const cleanPhone = m.customer_phone.replace(/[\s\-\(\)\.\[\]]/g, '');
+      const cleanPhone = m.customer_phone.replace(/\D/g, '');
       if (!convMap.has(cleanPhone)) convMap.set(cleanPhone, []);
       convMap.get(cleanPhone)!.push(m);
     });
@@ -892,9 +898,9 @@ class DatabaseEngine {
 
   public getChatMessages(clientId: string, phone: string): ChatMessage[] {
     if (!this.data.chat_messages) return [];
-    const cleanTarget = phone.replace(/[\s\-\(\)\.\[\]]/g, '');
+    const cleanTarget = phone.replace(/\D/g, '');
     return this.data.chat_messages
-      .filter(m => m.client_id === clientId && m.customer_phone.replace(/[\s\-\(\)\.\[\]]/g, '') === cleanTarget)
+      .filter(m => m.client_id === clientId && m.customer_phone.replace(/\D/g, '') === cleanTarget)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }
 
@@ -907,10 +913,10 @@ class DatabaseEngine {
 
   public markChatMessagesAsRead(clientId: string, phone: string) {
     if (!this.data.chat_messages) return;
-    const cleanTarget = phone.replace(/[\s\-\(\)\.\[\]]/g, '');
+    const cleanTarget = phone.replace(/\D/g, '');
     let updated = false;
     this.data.chat_messages.forEach(m => {
-      if (m.client_id === clientId && m.customer_phone.replace(/[\s\-\(\)\.\[\]]/g, '') === cleanTarget && m.sender === 'customer') {
+      if (m.client_id === clientId && m.customer_phone.replace(/\D/g, '') === cleanTarget && m.sender === 'customer') {
         if (m.status !== 'Read') {
           m.status = 'Read';
           updated = true;

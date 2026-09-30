@@ -20,6 +20,36 @@ export type ColumnRole =
   | 'custom3'
   | 'custom4'
   | 'custom5'
+  | 'custom6'
+  | 'custom7'
+  | 'custom8'
+  | 'custom9'
+  | 'custom10'
+  | 'var1'
+  | 'var2'
+  | 'var3'
+  | 'var4'
+  | 'var5'
+  | 'var6'
+  | 'var7'
+  | 'var8'
+  | 'var9'
+  | 'var10'
+  | 'var11'
+  | 'var12'
+  | 'var13'
+  | 'var14'
+  | 'var15'
+  | 'var16'
+  | 'var17'
+  | 'var18'
+  | 'var19'
+  | 'var20'
+  | 'var21'
+  | 'var22'
+  | 'var23'
+  | 'var24'
+  | 'var25'
   | 'metadata'
   | 'ignore';
 
@@ -51,6 +81,12 @@ export interface NormalizedContactRecord {
   custom3?: string;
   custom4?: string;
   custom5?: string;
+  custom6?: string;
+  custom7?: string;
+  custom8?: string;
+  custom9?: string;
+  custom10?: string;
+  variables?: Record<string, string>;
   metadata: Record<string, string>;
   isValid: boolean;
   validationStatus: 'valid' | 'duplicate_in_file' | 'invalid_phone';
@@ -112,10 +148,11 @@ export function parseCsvText(rawText: string, forcedDelimiter?: string): ParsedC
     transformHeader: (header: string) => header.trim().replace(/^["']|["']$/g, '')
   });
 
-  const headers = parsed.meta.fields || (parsed.data.length > 0 ? Object.keys(parsed.data[0]) : []);
-  const rows = (parsed.data as Record<string, string>[]).filter(r => {
+  const rawHeaders = parsed.meta.fields || (parsed.data.length > 0 ? Object.keys(parsed.data[0]) : []);
+  const headers = rawHeaders.map((h) => h.trim()).filter((h) => h.length > 0 && !h.startsWith('__EMPTY'));
+  const rows = (parsed.data as Record<string, string>[]).filter((r) => {
     // Check if at least one cell has content
-    return Object.values(r).some(val => typeof val === 'string' && val.trim().length > 0);
+    return Object.values(r).some((val) => typeof val === 'string' && val.trim().length > 0);
   });
 
   // Build sample values for each column
@@ -146,46 +183,112 @@ export function parseCsvText(rawText: string, forcedDelimiter?: string): ParsedC
 }
 
 /**
+ * Create structured ParsedCsvData directly from parsed rows (e.g. from Excel sheet_to_json)
+ */
+export function buildParsedDataFromRows(
+  rows: Record<string, any>[],
+  forcedDelimiter = ','
+): ParsedCsvData {
+  if (!rows || rows.length === 0) {
+    return {
+      headers: [],
+      rows: [],
+      totalRows: 0,
+      delimiter: forcedDelimiter,
+      previewRows: [],
+      suggestedMappings: {}
+    };
+  }
+
+  // Extract and clean headers
+  const rawHeaders = Object.keys(rows[0])
+    .map((h) => h.trim())
+    .filter((h) => h && !h.startsWith('__EMPTY'));
+
+  const cleanRows = rows
+    .map((r) => {
+      const clean: Record<string, string> = {};
+      rawHeaders.forEach((h) => {
+        clean[h] = r[h] !== undefined && r[h] !== null ? String(r[h]).trim() : '';
+      });
+      return clean;
+    })
+    .filter((r) => Object.values(r).some((v) => v.length > 0));
+
+  const suggestedMappings: Record<string, ColumnMappingItem> = {};
+  rawHeaders.forEach((header) => {
+    const samples = cleanRows
+      .map((r) => r[header])
+      .filter((v): v is string => Boolean(v && v.trim()))
+      .slice(0, 3);
+
+    const role = autoDetectColumnRole(header, samples);
+    suggestedMappings[header] = {
+      columnName: header,
+      role: role.role,
+      metadataKey: role.metadataKey || sanitizeMetadataKey(header),
+      sampleValues: samples
+    };
+  });
+
+  return {
+    headers: rawHeaders,
+    rows: cleanRows,
+    totalRows: cleanRows.length,
+    delimiter: forcedDelimiter,
+    previewRows: cleanRows.slice(0, 5),
+    suggestedMappings
+  };
+}
+
+/**
  * Intelligent role detection based on header name and sample values
  */
 function autoDetectColumnRole(header: string, sampleValues: string[]): { role: ColumnRole; metadataKey?: string } {
   const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  // 1. Phone
-  if (/^(phone|mobile|cell|tel|whatsapp|contactno|phonenumber|msisdn|customermobile)$/i.test(norm)) {
+  // 1. Phone number detection (matches number, mobile, whatsapp, phone, etc.)
+  if (/^(phone|mobile|cell|tel|whatsapp|contact|contactno|contactnumber|number|phonenumber|msisdn|customermobile|mobilenumber|phoneno|ph)$/i.test(norm)) {
     return { role: 'phone' };
   }
   // Check if sample values look like phone numbers
-  if (sampleValues.length > 0 && sampleValues.every(s => /^\+?[\d\s\-().]{8,20}$/.test(s))) {
+  if (sampleValues.length > 0 && sampleValues.every(s => /^\+?[\d\s\-().]{8,20}$/.test(s.trim()))) {
     return { role: 'phone' };
   }
 
-  // 2. Name
-  if (/^(name|fullname|customername|clientname|contactname|firstname)$/i.test(norm)) {
+  // 2. Customer Name detection
+  if (/^(name|fullname|full_name|customername|clientname|contactname|firstname|recipientname|username|custname)$/i.test(norm)) {
     return { role: 'name' };
   }
 
   // 3. Email
-  if (/^(email|mail|emailaddress)$/i.test(norm)) {
+  if (/^(email|mail|emailaddress|emailid)$/i.test(norm)) {
     return { role: 'email' };
   }
   if (sampleValues.length > 0 && sampleValues.some(s => s.includes('@') && s.includes('.'))) {
     return { role: 'email' };
   }
 
-  // 4. Group
+  // 4. Group / Segment
   if (/^(group|groupname|segment|category|tag|list)$/i.test(norm)) {
     return { role: 'group' };
   }
 
-  // 5. Custom 1 - 5
-  if (/^(custom1|custom_1|c1)$/i.test(norm)) return { role: 'custom1' };
-  if (/^(custom2|custom_2|c2)$/i.test(norm)) return { role: 'custom2' };
-  if (/^(custom3|custom_3|c3)$/i.test(norm)) return { role: 'custom3' };
-  if (/^(custom4|custom_4|c4)$/i.test(norm)) return { role: 'custom4' };
-  if (/^(custom5|custom_5|c5)$/i.test(norm)) return { role: 'custom5' };
+  // 5. Template Variables (var1 to var25, variable1 to variable25, v1 to v25)
+  const varMatch = norm.match(/^(?:var|variable|v|param)([1-9]|1[0-9]|2[0-5])$/);
+  if (varMatch) {
+    const num = varMatch[1];
+    return { role: `var${num}` as ColumnRole };
+  }
 
-  // Everything else with meaningful data becomes dynamic metadata!
+  // 6. Custom Fields 1 - 10
+  const customMatch = norm.match(/^custom(?:field)?([1-9]|10)$/);
+  if (customMatch) {
+    const num = customMatch[1];
+    return { role: `custom${num}` as ColumnRole };
+  }
+
+  // Everything else becomes dynamic metadata!
   return { role: 'metadata', metadataKey: sanitizeMetadataKey(header) };
 }
 
@@ -302,38 +405,29 @@ export function processMappedRows(
   let nameCol = '';
   let emailCol = '';
   let groupCol = '';
-  const customCols: Record<string, string> = {}; // 'custom1' -> colName
+  const customCols: Record<string, string> = {}; // 'custom1'..'custom10' -> colName
+  const varCols: Record<string, string> = {}; // '1'..'25' -> colName
   const metadataCols: Array<{ colName: string; key: string }> = [];
 
   Object.entries(mappings).forEach(([colName, mapping]) => {
-    switch (mapping.role) {
-      case 'phone':
-        phoneCol = colName;
-        break;
-      case 'name':
-        nameCol = colName;
-        break;
-      case 'email':
-        emailCol = colName;
-        break;
-      case 'group':
-        groupCol = colName;
-        break;
-      case 'custom1':
-      case 'custom2':
-      case 'custom3':
-      case 'custom4':
-      case 'custom5':
-        customCols[mapping.role] = colName;
-        break;
-      case 'metadata':
-        metadataCols.push({
-          colName,
-          key: mapping.metadataKey || sanitizeMetadataKey(colName)
-        });
-        break;
-      default:
-        break;
+    if (mapping.role === 'phone') {
+      phoneCol = colName;
+    } else if (mapping.role === 'name') {
+      nameCol = colName;
+    } else if (mapping.role === 'email') {
+      emailCol = colName;
+    } else if (mapping.role === 'group') {
+      groupCol = colName;
+    } else if (mapping.role.startsWith('custom')) {
+      customCols[mapping.role] = colName;
+    } else if (mapping.role.startsWith('var')) {
+      const varNum = mapping.role.replace('var', '');
+      varCols[varNum] = colName;
+    } else if (mapping.role === 'metadata') {
+      metadataCols.push({
+        colName,
+        key: mapping.metadataKey || sanitizeMetadataKey(colName)
+      });
     }
   });
 
@@ -360,6 +454,21 @@ export function processMappedRows(
       }
     });
 
+    // Extract variables 1 to 25
+    const variables: Record<string, string> = {};
+    Object.entries(varCols).forEach(([slot, colName]) => {
+      const val = row[colName]?.trim();
+      if (val !== undefined && val !== '') {
+        variables[slot] = val;
+      }
+    });
+    // Also check if any metadata column is named numeric (e.g. 1..25)
+    Object.entries(metadata).forEach(([k, val]) => {
+      if (/^[1-9]$|^1[0-9]$|^2[0-5]$/.test(k) && !variables[k]) {
+        variables[k] = val;
+      }
+    });
+
     const record: NormalizedContactRecord = {
       rowIndex: idx + 1,
       rawPhone,
@@ -372,6 +481,12 @@ export function processMappedRows(
       custom3: customCols['custom3'] ? row[customCols['custom3']]?.trim() || undefined : undefined,
       custom4: customCols['custom4'] ? row[customCols['custom4']]?.trim() || undefined : undefined,
       custom5: customCols['custom5'] ? row[customCols['custom5']]?.trim() || undefined : undefined,
+      custom6: customCols['custom6'] ? row[customCols['custom6']]?.trim() || undefined : undefined,
+      custom7: customCols['custom7'] ? row[customCols['custom7']]?.trim() || undefined : undefined,
+      custom8: customCols['custom8'] ? row[customCols['custom8']]?.trim() || undefined : undefined,
+      custom9: customCols['custom9'] ? row[customCols['custom9']]?.trim() || undefined : undefined,
+      custom10: customCols['custom10'] ? row[customCols['custom10']]?.trim() || undefined : undefined,
+      variables: Object.keys(variables).length > 0 ? variables : undefined,
       metadata,
       isValid: false,
       validationStatus: 'valid'

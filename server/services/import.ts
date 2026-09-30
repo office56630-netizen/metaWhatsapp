@@ -17,6 +17,12 @@ export interface ValidatedContactRow {
   custom3?: string;
   custom4?: string;
   custom5?: string;
+  custom6?: string;
+  custom7?: string;
+  custom8?: string;
+  custom9?: string;
+  custom10?: string;
+  variables?: Record<string, string>;
   isValid: boolean;
   status: 'valid' | 'duplicate_in_file' | 'duplicate_in_db' | 'invalid_phone';
   error?: string;
@@ -121,19 +127,20 @@ export class ImportService {
               rawGroupName = val;
               break;
             case 'custom1':
-              c1 = val || undefined;
-              break;
             case 'custom2':
-              c2 = val || undefined;
-              break;
             case 'custom3':
-              c3 = val || undefined;
-              break;
             case 'custom4':
-              c4 = val || undefined;
-              break;
             case 'custom5':
-              c5 = val || undefined;
+            case 'custom6':
+            case 'custom7':
+            case 'custom8':
+            case 'custom9':
+            case 'custom10':
+              if (mapping.role === 'custom1') c1 = val || undefined;
+              if (mapping.role === 'custom2') c2 = val || undefined;
+              if (mapping.role === 'custom3') c3 = val || undefined;
+              if (mapping.role === 'custom4') c4 = val || undefined;
+              if (mapping.role === 'custom5') c5 = val || undefined;
               break;
             case 'metadata':
               if (val) {
@@ -142,14 +149,18 @@ export class ImportService {
               }
               break;
             default:
+              if (mapping.role && mapping.role.startsWith('var')) {
+                const num = mapping.role.replace('var', '');
+                if (val) metadata[`var_${num}`] = val;
+              }
               break;
           }
         });
       } else {
         // Fallback auto-detection
         const keys = Object.keys(row);
-        const phoneKey = keys.find(k => /^(phone|mobile|number|cell|tel|whatsapp|contact)/i.test(k.trim())) || keys[0];
-        const nameKey = keys.find(k => /^(name|fullname|full_name|customer|client)/i.test(k.trim())) || keys[1];
+        const phoneKey = keys.find(k => /^(phone|mobile|number|cell|tel|whatsapp|contact|ph)/i.test(k.trim())) || keys[0];
+        const nameKey = keys.find(k => /^(name|fullname|full_name|customer|client|recipient)/i.test(k.trim())) || keys[1];
         const emailKey = keys.find(k => /^(email|mail)/i.test(k.trim()));
         const groupKey = keys.find(k => /^(group|segment|category|tag)/i.test(k.trim()));
         const c1Key = keys.find(k => /^(custom1|custom_1|c1|id|order|order_id)/i.test(k.trim()));
@@ -168,7 +179,7 @@ export class ImportService {
         c4 = c4Key ? String(row[c4Key] || '').trim() || undefined : undefined;
         c5 = c5Key ? String(row[c5Key] || '').trim() || undefined : undefined;
 
-        // Any remaining column becomes metadata
+        // Any remaining column becomes metadata and variable
         const mappedKeys = new Set([phoneKey, nameKey, emailKey, groupKey, c1Key, c2Key, c3Key, c4Key, c5Key].filter(Boolean));
         keys.forEach(k => {
           if (!mappedKeys.has(k) && row[k] !== undefined && String(row[k]).trim() !== '') {
@@ -177,6 +188,15 @@ export class ImportService {
           }
         });
       }
+
+      // Extract variables 1 to 25 from metadata if present
+      const variablesMap: Record<string, string> = {};
+      Object.entries(metadata).forEach(([k, val]) => {
+        const numMatch = k.match(/^(?:var_?|v)?([1-9]|1[0-9]|2[0-5])$/);
+        if (numMatch) {
+          variablesMap[numMatch[1]] = val;
+        }
+      });
 
       const normPhone = ContactService.normalizePhone(rawPhone, defaultCountryCode);
       const cleanComparablePhone = normPhone.replace(/[\s\-\(\)\.\[\]]/g, '');
@@ -195,6 +215,7 @@ export class ImportService {
         group_id: assignedGroupId,
         group_name: rawGroupName || undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        variables: Object.keys(variablesMap).length > 0 ? variablesMap : undefined,
         custom1: c1,
         custom2: c2,
         custom3: c3,
@@ -308,6 +329,12 @@ export class ImportService {
             custom3: r.custom3 || existing.custom3,
             custom4: r.custom4 || existing.custom4,
             custom5: r.custom5 || existing.custom5,
+            custom6: r.custom6 || existing.custom6,
+            custom7: r.custom7 || existing.custom7,
+            custom8: r.custom8 || existing.custom8,
+            custom9: r.custom9 || existing.custom9,
+            custom10: r.custom10 || existing.custom10,
+            variables: { ...(existing.variables || {}), ...(r.variables || {}) },
             updated_at: new Date().toISOString()
           };
 
@@ -325,11 +352,17 @@ export class ImportService {
         email: r.email,
         group_id: targetGroupId,
         metadata: r.metadata || {},
+        variables: r.variables || {},
         custom1: r.custom1,
         custom2: r.custom2,
         custom3: r.custom3,
         custom4: r.custom4,
         custom5: r.custom5,
+        custom6: r.custom6,
+        custom7: r.custom7,
+        custom8: r.custom8,
+        custom9: r.custom9,
+        custom10: r.custom10,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

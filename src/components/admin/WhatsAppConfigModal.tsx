@@ -19,6 +19,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({ client
     waba_id: '',
     business_id: '',
     meta_access_token: '',
+    app_secret: '',
     webhook_verify_token: '',
     quality_rating: 'GREEN' as const,
     status: 'CONNECTED' as const
@@ -34,6 +35,7 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({ client
           waba_id: res.whatsapp.waba_id || '',
           business_id: res.whatsapp.business_id || '',
           meta_access_token: res.whatsapp.meta_access_token || '',
+          app_secret: res.whatsapp.app_secret || '',
           webhook_verify_token: res.whatsapp.webhook_verify_token || '',
           quality_rating: res.whatsapp.quality_rating || 'GREEN',
           status: res.whatsapp.status || 'CONNECTED'
@@ -173,6 +175,20 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({ client
                 placeholder="EAAG... (Meta Graph API v21.0 Token)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white font-mono focus:border-emerald-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-slate-400 mb-1">Meta App Secret (App Secret Proof HMAC-SHA256)</label>
+              <input
+                type="password"
+                value={formData.app_secret}
+                onChange={(e) => setFormData({ ...formData, app_secret: e.target.value })}
+                placeholder="e.g. 6912a015ebb9131b92b23094e09825d1"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Found in Meta App Dashboard &gt; App settings &gt; Basic &gt; App Secret. Used to compute <code>appsecret_proof</code> to resolve Code 100 errors.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

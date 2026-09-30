@@ -77,6 +77,12 @@ export interface Contact {
   custom3?: string;
   custom4?: string;
   custom5?: string;
+  custom6?: string;
+  custom7?: string;
+  custom8?: string;
+  custom9?: string;
+  custom10?: string;
+  variables?: Record<string, string>; // Maps slot "1".."25" to dynamic values
   status: 'active' | 'opt_out' | 'invalid';
   created_at: string;
   updated_at: string;

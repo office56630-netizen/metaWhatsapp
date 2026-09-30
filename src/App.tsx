@@ -25,9 +25,10 @@ const AppContent: React.FC = () => {
   const { user, client, isLoading } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
 
-  // Active Tab
+  // Active Tab & Mobile Navigation
   const [activeTab, setActiveTab] = useState<string>(isSuperAdmin ? 'admin_dashboard' : 'dashboard');
   const [targetCampaignId, setTargetCampaignId] = useState<string | undefined>(undefined);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Admin Modals
   const [whatsAppConfigClient, setWhatsAppConfigClient] = useState<Client | null>(null);
@@ -58,10 +59,18 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      <Navbar />
+      <Navbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
 
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar activeTab={activeTab} onSelectTab={(tab) => { setTargetCampaignId(undefined); setActiveTab(tab); }} />
+      <div className="flex-1 flex overflow-hidden relative">
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setTargetCampaignId(undefined);
+            setActiveTab(tab);
+          }}
+          mobileOpen={mobileSidebarOpen}
+          onCloseMobile={() => setMobileSidebarOpen(false)}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-950">
           <div className="max-w-7xl mx-auto">

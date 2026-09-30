@@ -30,6 +30,7 @@ export const TemplatesCatalog: React.FC = () => {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [wabaId, setWabaId] = useState<string>('');
   const [metaAccessToken, setMetaAccessToken] = useState<string>('');
+  const [appSecret, setAppSecret] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<{ success?: boolean; message?: string; count?: number } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export const TemplatesCatalog: React.FC = () => {
       if (configRes.success && configRes.whatsapp) {
         setWabaId(configRes.whatsapp.waba_id || '');
         setMetaAccessToken(configRes.whatsapp.meta_access_token || '');
+        setAppSecret(configRes.whatsapp.app_secret || '');
       }
     } catch (e) {
       console.error(e);
@@ -77,7 +79,8 @@ export const TemplatesCatalog: React.FC = () => {
     try {
       const res = await api.syncRealTemplates({
         wabaId: wabaId.trim() || undefined,
-        metaAccessToken: metaAccessToken.trim() || undefined
+        metaAccessToken: metaAccessToken.trim() || undefined,
+        appSecret: appSecret.trim() || undefined
       });
 
       if (res.success) {
@@ -387,6 +390,22 @@ export const TemplatesCatalog: React.FC = () => {
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
                     Token requires <code>whatsapp_business_management</code> and <code>whatsapp_business_messaging</code> permissions.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">
+                    Meta App Secret (App Secret Proof)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="e.g. 6912a015ebb9131b92b23094e09825d1"
+                    value={appSecret}
+                    onChange={(e) => setAppSecret(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Found in Meta App Dashboard &gt; App settings &gt; Basic &gt; App Secret. Enables HMAC-SHA256 <code>appsecret_proof</code> to satisfy Meta security requirements (fixes Code 100).
                   </p>
                 </div>
               </div>

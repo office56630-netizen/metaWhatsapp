@@ -8,11 +8,16 @@ import {
   Zap,
   Coins,
   LogOut,
-  UserCheck
+  UserCheck,
+  Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleSidebar?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, client, isImpersonating, returnToSuperAdmin, quickSwitchWorkspace, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -39,8 +44,18 @@ export const Navbar: React.FC = () => {
 
       {/* Main Navbar */}
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between">
-        {/* Left: Brand & Meta Status */}
+        {/* Left: Brand & Meta Status & Mobile Toggle */}
         <div className="flex items-center space-x-3">
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="md:hidden p-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20">
               <Zap className="w-5 h-5 fill-slate-950" />

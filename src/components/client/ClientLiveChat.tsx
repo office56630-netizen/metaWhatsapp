@@ -19,10 +19,16 @@ import {
   Smile,
   ShieldAlert,
   ChevronDown,
-  X
+  X,
+  Copy,
+  ExternalLink,
+  Activity,
+  CheckCircle2,
+  ArrowLeft
 } from 'lucide-react';
 import { api } from '../../api';
 import { ChatConversation, ChatMessage, WhatsAppTemplate, Contact } from '../../types';
+import { getTemplateVariables, getVariableContext, renderTemplatePreview } from '../../utils/templateHelper';
 
 export const ClientLiveChat: React.FC = () => {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -45,15 +51,12 @@ export const ClientLiveChat: React.FC = () => {
   // Template send form
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [variableInputModes, setVariableInputModes] = useState<Record<string, 'custom' | 'attribute'>>({});
 
   // New Chat modal
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState<boolean>(false);
   const [newChatPhone, setNewChatPhone] = useState<string>('');
   const [newChatName, setNewChatName] = useState<string>('');
-
-  // Simulation quick input
-  const [simInboundText, setSimInboundText] = useState<string>('');
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +77,18 @@ export const ClientLiveChat: React.FC = () => {
     }
   };
 
+  const loadMessages = async (phone: string) => {
+    if (!phone) return;
+    try {
+      const res = await api.getChatMessages(phone);
+      if (res.success) {
+        setMessages(res.messages);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const loadDependencies = async () => {
     try {
       const [cRes, tRes] = await Promise.all([api.getContacts({ limit: 100 }), api.getTemplates()]);
@@ -89,7 +104,7 @@ export const ClientLiveChat: React.FC = () => {
     loadDependencies();
   }, []);
 
-  // Poll conversation list & messages every 4 seconds
+  // Poll conversation list & messages every 2.5 seconds for snappy real-time updates
   useEffect(() => {
     const timer = setInterval(() => {
       loadConversations();
@@ -100,7 +115,7 @@ export const ClientLiveChat: React.FC = () => {
           }
         });
       }
-    }, 4000);
+    }, 2500);
     return () => clearInterval(timer);
   }, [selectedPhone]);
 
@@ -137,12 +152,15 @@ export const ClientLiveChat: React.FC = () => {
     if (!tpl) return;
 
     const initialVars: Record<string, string> = {};
+    const initialModes: Record<string, 'custom' | 'attribute'> = {};
     const contact = contacts.find(
       (c) => c.phone.replace(/\D/g, '') === selectedPhone.replace(/\D/g, '')
     );
 
-    tpl.variables.forEach((v) => {
-      if (v === '1' || v.toLowerCase() === 'name') {
+    const tplVars = getTemplateVariables(tpl);
+    tplVars.forEach((v, idx) => {
+      initialModes[v] = 'custom';
+      if (v === '1' || v.toLowerCase() === 'name' || idx === 0) {
         initialVars[v] = contact?.name || currentConv?.contact_name || 'Customer';
       } else if (v === '2' && contact?.custom1) {
         initialVars[v] = contact.custom1;
@@ -154,6 +172,7 @@ export const ClientLiveChat: React.FC = () => {
     });
 
     setTemplateVariables(initialVars);
+    setVariableInputModes(initialModes);
   };
 
   // Send message
@@ -211,31 +230,6 @@ export const ClientLiveChat: React.FC = () => {
       } finally {
         setIsSending(false);
       }
-    }
-  };
-
-  // Simulate customer inbound message
-  const handleSimulateInbound = async (quickText?: string) => {
-    const textToSimulate = quickText || simInboundText;
-    if (!textToSimulate.trim() || !selectedPhone) return;
-
-    setIsSimulating(true);
-    try {
-      const res = await api.simulateInboundChat({
-        phone: selectedPhone,
-        text: textToSimulate.trim(),
-        name: currentConv?.contact_name
-      });
-
-      if (res.success) {
-        setSimInboundText('');
-        setMessages((prev) => [...prev, res.message]);
-        loadConversations();
-      }
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -299,9 +293,9 @@ export const ClientLiveChat: React.FC = () => {
       </div>
 
       {/* Main Split Layout */}
-      <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row">
+      <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row min-h-[520px]">
         {/* LEFT PANEL: CONVERSATIONS LIST */}
-        <div className="w-full md:w-80 lg:w-96 border-r border-slate-800 flex flex-col bg-slate-950/60">
+        <div className={`w-full md:w-80 lg:w-96 border-r border-slate-800 flex flex-col bg-slate-950/60 ${selectedPhone ? 'hidden md:flex' : 'flex'}`}>
           {/* Search & Filter Header */}
           <div className="p-3 border-b border-slate-800 space-y-2.5">
             <div className="relative">
@@ -446,13 +440,21 @@ export const ClientLiveChat: React.FC = () => {
         </div>
 
         {/* RIGHT PANEL: CHAT TIMELINE & INPUT BAR */}
-        <div className="flex-1 flex flex-col bg-slate-900/80">
+        <div className={`flex-1 flex flex-col bg-slate-900/80 ${!selectedPhone ? 'hidden md:flex' : 'flex'}`}>
           {selectedPhone ? (
             <>
               {/* Chat Window Header */}
-              <div className="px-6 py-3 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
+              <div className="px-4 sm:px-6 py-3 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-xs">
+                  <button
+                    onClick={() => setSelectedPhone('')}
+                    className="md:hidden p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Back to conversations"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-xs shrink-0">
                     {currentConv?.contact_name ? currentConv.contact_name.slice(0, 2).toUpperCase() : 'WA'}
                   </div>
                   <div>
@@ -472,34 +474,29 @@ export const ClientLiveChat: React.FC = () => {
                       {currentConv?.is_window_active ? (
                         <span className="text-emerald-400 font-sans font-medium flex items-center space-x-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <span>24-Hour Session Open (Free-form chat allowed)</span>
+                          <span>24h Session Open</span>
                         </span>
                       ) : (
                         <span className="text-amber-400 font-sans font-medium flex items-center space-x-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                          <span>Session Window Inactive (Use Template to Initiate)</span>
+                          <span>Session Closed (Use Template)</span>
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Quick Simulation Bar */}
-                <div className="hidden lg:flex items-center space-x-2">
-                  <span className="text-[11px] text-slate-500">Test Inbound:</span>
+                <div className="flex items-center space-x-2 text-xs text-slate-400">
+                  <span className="hidden sm:inline font-mono text-[11px]">Auto-refresh: 2.5s</span>
                   <button
-                    onClick={() => handleSimulateInbound('Yes, please confirm!')}
-                    disabled={isSimulating}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2 py-1 rounded-lg text-[10px] cursor-pointer"
+                    onClick={() => {
+                      loadConversations();
+                      if (selectedPhone) loadMessages(selectedPhone);
+                    }}
+                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer"
+                    title="Refresh chat"
                   >
-                    "Yes, confirm"
-                  </button>
-                  <button
-                    onClick={() => handleSimulateInbound('What are the package prices?')}
-                    disabled={isSimulating}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2 py-1 rounded-lg text-[10px] cursor-pointer"
-                  >
-                    "Package prices?"
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingMessages ? 'animate-spin text-emerald-400' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -680,34 +677,254 @@ export const ClientLiveChat: React.FC = () => {
 
                     {selectedTemplate && (
                       <div className="space-y-3 pt-2 border-t border-slate-800">
-                        <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300">
-                          {selectedTemplate.body_text}
+                        {/* Live Message Preview */}
+                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400">
+                            <span className="font-semibold text-emerald-400 uppercase tracking-wide">
+                              Live Preview (Customer View):
+                            </span>
+                            <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
+                              {getTemplateVariables(selectedTemplate).length} variable(s)
+                            </span>
+                          </div>
+                          <div className="text-[12px] text-slate-200 leading-relaxed font-sans whitespace-pre-wrap bg-slate-900/60 p-2.5 rounded-lg border border-slate-850">
+                            {renderTemplatePreview(selectedTemplate.body_text, templateVariables)}
+                          </div>
                         </div>
 
-                        {selectedTemplate.variables.length > 0 && (
-                          <div>
-                            <p className="font-semibold text-slate-400 mb-2">Fill Template Variables:</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {selectedTemplate.variables.map((varName) => (
-                                <div key={varName}>
-                                  <label className="block text-[10px] text-slate-500 mb-0.5">
-                                    Variable {'{{' + varName + '}}'}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={templateVariables[varName] || ''}
-                                    onChange={(e) =>
-                                      setTemplateVariables({
-                                        ...templateVariables,
-                                        [varName]: e.target.value
-                                      })
-                                    }
-                                    placeholder={`Value for {{${varName}}}`}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white"
-                                  />
-                                </div>
-                              ))}
+                        {getTemplateVariables(selectedTemplate).length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-white text-[11px] flex items-center space-x-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Configure Template Variables ({getTemplateVariables(selectedTemplate).length}):</span>
+                              </p>
+                              <div className="flex items-center space-x-1 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allCustom: Record<string, 'custom' | 'attribute'> = {};
+                                    getTemplateVariables(selectedTemplate).forEach(v => allCustom[v] = 'custom');
+                                    setVariableInputModes(allCustom);
+                                  }}
+                                  className="text-purple-400 hover:text-purple-300 px-1.5 py-0.5 rounded hover:bg-purple-950/30 cursor-pointer"
+                                >
+                                  ✍️ Type All
+                                </button>
+                                <span className="text-slate-600">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allAttr: Record<string, 'custom' | 'attribute'> = {};
+                                    getTemplateVariables(selectedTemplate).forEach(v => allAttr[v] = 'attribute');
+                                    setVariableInputModes(allAttr);
+                                  }}
+                                  className="text-emerald-400 hover:text-emerald-300 px-1.5 py-0.5 rounded hover:bg-emerald-950/30 cursor-pointer"
+                                >
+                                  📂 Choose All
+                                </button>
+                              </div>
                             </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto p-1">
+                              {getTemplateVariables(selectedTemplate).map((varName) => {
+                                const contact = contacts.find(
+                                  (c) => c.phone.replace(/\D/g, '') === selectedPhone.replace(/\D/g, '')
+                                );
+                                const currentVal = templateVariables[varName] || '';
+                                const currentMode = variableInputModes[varName] || 'custom';
+                                const location = getVariableContext(selectedTemplate, varName);
+
+                                return (
+                                  <div key={varName} className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+                                    <div className="flex items-center justify-between text-[11px]">
+                                      <div className="flex items-center space-x-1.5">
+                                        <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 text-xs">
+                                          {'{{' + varName + '}}'}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">
+                                          {location}
+                                        </span>
+                                      </div>
+
+                                      {/* Segmented Mode Switch */}
+                                      <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[9px]">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setVariableInputModes({
+                                              ...variableInputModes,
+                                              [varName]: 'custom'
+                                            })
+                                          }
+                                          className={`px-1.5 py-0.5 rounded font-medium cursor-pointer transition-colors ${
+                                            currentMode === 'custom'
+                                              ? 'bg-purple-600 text-white shadow-xs'
+                                              : 'text-slate-400 hover:text-white'
+                                          }`}
+                                        >
+                                          ✍️ Custom
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setVariableInputModes({
+                                              ...variableInputModes,
+                                              [varName]: 'attribute'
+                                            })
+                                          }
+                                          className={`px-1.5 py-0.5 rounded font-medium cursor-pointer transition-colors ${
+                                            currentMode === 'attribute'
+                                              ? 'bg-emerald-600 text-white shadow-xs'
+                                              : 'text-slate-400 hover:text-white'
+                                          }`}
+                                        >
+                                          📂 Choose
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {currentMode === 'custom' ? (
+                                      /* Option 1: Type Custom Value */
+                                      <div className="space-y-1.5">
+                                        <input
+                                          type="text"
+                                          value={currentVal}
+                                          onChange={(e) =>
+                                            setTemplateVariables({
+                                              ...templateVariables,
+                                              [varName]: e.target.value
+                                            })
+                                          }
+                                          placeholder={`Type custom text for {{${varName}}}`}
+                                          className="w-full bg-slate-900 border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-purple-400 focus:outline-none"
+                                        />
+
+                                        {/* Quick chips to fill custom or contact values */}
+                                        <div className="flex flex-wrap gap-1 text-[9px]">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setTemplateVariables({
+                                                ...templateVariables,
+                                                [varName]: contact?.name || currentConv?.contact_name || 'Customer'
+                                              })
+                                            }
+                                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                          >
+                                            👤 Name
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setTemplateVariables({
+                                                ...templateVariables,
+                                                [varName]: selectedPhone
+                                              })
+                                            }
+                                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                          >
+                                            📞 Phone
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setTemplateVariables({
+                                                ...templateVariables,
+                                                [varName]: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                                              })
+                                            }
+                                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                          >
+                                            📅 Today
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setTemplateVariables({
+                                                ...templateVariables,
+                                                [varName]: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                              })
+                                            }
+                                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                                          >
+                                            ⏰ Time
+                                          </button>
+                                          {currentVal && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setTemplateVariables({
+                                                  ...templateVariables,
+                                                  [varName]: ''
+                                                })
+                                              }
+                                              className="text-rose-400 hover:text-rose-300 px-1 py-0.5 cursor-pointer ml-auto"
+                                            >
+                                              ✕ Clear
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      /* Option 2: Choose Variable / Contact Attribute */
+                                      <div className="space-y-1">
+                                        <select
+                                          value={
+                                            currentVal === (contact?.name || currentConv?.contact_name) ? 'name'
+                                            : currentVal === selectedPhone ? 'phone'
+                                            : currentVal === (contact?.email || '') ? 'email'
+                                            : currentVal === (contact?.variables?.[varName] || '') ? `var_${varName}`
+                                            : ''
+                                          }
+                                          onChange={(e) => {
+                                            const role = e.target.value;
+                                            let val = '';
+                                            if (role === 'name') val = contact?.name || currentConv?.contact_name || 'Customer';
+                                            else if (role === 'phone') val = selectedPhone;
+                                            else if (role === 'email') val = contact?.email || '';
+                                            else if (role.startsWith('var_')) {
+                                              const num = role.replace('var_', '');
+                                              val = contact?.variables?.[num] || contact?.metadata?.[`var_${num}`] || '';
+                                            }
+                                            setTemplateVariables({
+                                              ...templateVariables,
+                                              [varName]: val
+                                            });
+                                          }}
+                                          className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg px-2.5 py-1.5 text-white text-xs focus:border-emerald-400 focus:outline-none"
+                                        >
+                                          <option value="">-- Choose contact field --</option>
+                                          <optgroup label="Core Profile Attributes">
+                                            <option value="name">👤 Customer Name ({contact?.name || currentConv?.contact_name || 'Customer'})</option>
+                                            <option value="phone">📞 Phone Number ({selectedPhone})</option>
+                                            {contact?.email && <option value="email">✉️ Email ({contact.email})</option>}
+                                          </optgroup>
+                                          {contact?.variables?.[varName] && (
+                                            <optgroup label="Contact Variable">
+                                              <option value={`var_${varName}`}>✨ Contact Variable {varName} ({contact.variables[varName]})</option>
+                                            </optgroup>
+                                          )}
+                                        </select>
+                                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                                          <span>Resolved value:</span>
+                                          <strong className="text-emerald-400 font-mono truncate max-w-[150px]">
+                                            {currentVal || '(blank)'}
+                                          </strong>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-emerald-950/20 border border-emerald-800/40 rounded-xl text-emerald-300 text-[11px] flex items-center space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>
+                              <strong>Zero Variables Required:</strong> This template has no dynamic placeholders. It will dispatch with standard approved Meta content.
+                            </span>
                           </div>
                         )}
 

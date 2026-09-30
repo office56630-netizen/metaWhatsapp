@@ -44,14 +44,34 @@ export type AdminTab =
 interface SidebarProps {
   activeTab: string;
   onSelectTab: (tab: any) => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, mobileOpen, onCloseMobile }) => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
 
+  const handleSelect = (tab: any) => {
+    onSelectTab(tab);
+    if (onCloseMobile) onCloseMobile();
+  };
+
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 min-h-[calc(100vh-3.5rem)] text-slate-300">
+    <>
+      {/* Mobile Backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 min-h-[calc(100vh-3.5rem)] text-slate-300 transform transition-transform duration-200 ease-in-out ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
       <div className="p-4 flex-1 overflow-y-auto space-y-6">
         {/* SUPER ADMIN NAVIGATION */}
         {isSuperAdmin ? (
@@ -67,38 +87,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
                 active={activeTab === 'admin_dashboard'}
                 icon={<LayoutDashboard className="w-4 h-4" />}
                 label="System Dashboard"
-                onClick={() => onSelectTab('admin_dashboard')}
+                onClick={() => handleSelect('admin_dashboard')}
               />
               <NavItem
                 active={activeTab === 'admin_clients'}
                 icon={<Building2 className="w-4 h-4" />}
                 label="Clients Management"
-                onClick={() => onSelectTab('admin_clients')}
+                onClick={() => handleSelect('admin_clients')}
               />
               <NavItem
                 active={activeTab === 'admin_whatsapp'}
                 icon={<Radio className="w-4 h-4" />}
                 label="WhatsApp Credentials"
-                onClick={() => onSelectTab('admin_whatsapp')}
+                onClick={() => handleSelect('admin_whatsapp')}
               />
               <NavItem
                 active={activeTab === 'admin_campaigns'}
                 icon={<Send className="w-4 h-4" />}
                 label="All Client Campaigns"
-                onClick={() => onSelectTab('admin_campaigns')}
+                onClick={() => handleSelect('admin_campaigns')}
               />
               <NavItem
                 active={activeTab === 'admin_webhook_simulator'}
                 icon={<Terminal className="w-4 h-4" />}
                 label="Webhook Simulator"
                 badge="Test Tool"
-                onClick={() => onSelectTab('admin_webhook_simulator')}
+                onClick={() => handleSelect('admin_webhook_simulator')}
               />
               <NavItem
                 active={activeTab === 'admin_audit_logs'}
                 icon={<ShieldCheck className="w-4 h-4" />}
                 label="Audit & Impersonation"
-                onClick={() => onSelectTab('admin_audit_logs')}
+                onClick={() => handleSelect('admin_audit_logs')}
               />
             </nav>
           </div>
@@ -114,32 +134,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
                   active={activeTab === 'dashboard'}
                   icon={<LayoutDashboard className="w-4 h-4" />}
                   label="Overview"
-                  onClick={() => onSelectTab('dashboard')}
+                  onClick={() => handleSelect('dashboard')}
                 />
                 <NavItem
                   active={activeTab === 'chat'}
                   icon={<MessageSquare className="w-4 h-4 text-emerald-400" />}
                   label="Live Chat & Inbox"
                   badge="WhatsApp"
-                  onClick={() => onSelectTab('chat')}
+                  onClick={() => handleSelect('chat')}
                 />
                 <NavItem
                   active={activeTab === 'campaigns'}
                   icon={<Send className="w-4 h-4" />}
                   label="Campaigns"
-                  onClick={() => onSelectTab('campaigns')}
+                  onClick={() => handleSelect('campaigns')}
                 />
                 <NavItem
                   active={activeTab === 'records'}
                   icon={<ListOrdered className="w-4 h-4" />}
                   label="Campaign Records"
-                  onClick={() => onSelectTab('records')}
+                  onClick={() => handleSelect('records')}
                 />
                 <NavItem
                   active={activeTab === 'reports'}
                   icon={<BarChart3 className="w-4 h-4" />}
                   label="Analytics & Reports"
-                  onClick={() => onSelectTab('reports')}
+                  onClick={() => handleSelect('reports')}
                 />
               </nav>
             </div>
@@ -153,26 +173,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
                   active={activeTab === 'contacts'}
                   icon={<Users className="w-4 h-4" />}
                   label="Contacts"
-                  onClick={() => onSelectTab('contacts')}
+                  onClick={() => handleSelect('contacts')}
                 />
                 <NavItem
                   active={activeTab === 'groups'}
                   icon={<FolderGit2 className="w-4 h-4" />}
                   label="Contact Groups"
-                  onClick={() => onSelectTab('groups')}
+                  onClick={() => handleSelect('groups')}
                 />
                 <NavItem
                   active={activeTab === 'templates'}
                   icon={<FileCode2 className="w-4 h-4" />}
                   label="Meta Templates"
-                  onClick={() => onSelectTab('templates')}
+                  onClick={() => handleSelect('templates')}
                 />
                 <NavItem
                   active={activeTab === 'download_templates'}
                   icon={<FileSpreadsheet className="w-4 h-4" />}
                   label="Download Templates"
                   badge="CSV / XLSX"
-                  onClick={() => onSelectTab('download_templates')}
+                  onClick={() => handleSelect('download_templates')}
                 />
               </nav>
             </div>
@@ -186,19 +206,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
                   active={activeTab === 'credits'}
                   icon={<CreditCard className="w-4 h-4" />}
                   label="Credit Ledger"
-                  onClick={() => onSelectTab('credits')}
+                  onClick={() => handleSelect('credits')}
                 />
                 <NavItem
                   active={activeTab === 'api'}
                   icon={<KeyRound className="w-4 h-4" />}
                   label="Developer API"
-                  onClick={() => onSelectTab('api')}
+                  onClick={() => handleSelect('api')}
                 />
                 <NavItem
                   active={activeTab === 'api_logs'}
                   icon={<Terminal className="w-4 h-4" />}
                   label="API Request Logs"
-                  onClick={() => onSelectTab('api_logs')}
+                  onClick={() => handleSelect('api_logs')}
                 />
               </nav>
             </div>
@@ -217,6 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
         </p>
       </div>
     </aside>
+    </>
   );
 };
 

@@ -141,10 +141,11 @@ export class CampaignService {
         Object.assign(varMap, r.variables);
       }
 
-      // Fill in mapped contact variables if missing
+      // Fill in mapped contact variables or custom static values
       Object.entries(variableMapping).forEach(([varKey, fieldKey]) => {
         if (!varMap[varKey]) {
-          if (fieldKey === 'name') varMap[varKey] = r.name || '';
+          if (fieldKey.startsWith('custom:')) varMap[varKey] = fieldKey.slice(7);
+          else if (fieldKey === 'name') varMap[varKey] = r.name || '';
           else if (fieldKey === 'phone') varMap[varKey] = normPhone;
           else if (fieldKey === 'custom1') varMap[varKey] = r.custom1 || '';
           else if (fieldKey === 'custom2') varMap[varKey] = r.custom2 || '';

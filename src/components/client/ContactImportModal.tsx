@@ -24,6 +24,7 @@ import { api } from '../../api';
 import { ContactGroup } from '../../types';
 import {
   parseCsvText,
+  buildParsedDataFromRows,
   processMappedRows,
   generateSampleCsv,
   ColumnMappingItem,
@@ -88,8 +89,28 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({ groups, 
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const csv = XLSX.utils.sheet_to_csv(firstSheet);
-          processRawCsv(csv, file.name);
+          const rawJson = XLSX.utils.sheet_to_json<Record<string, any>>(firstSheet, { defval: '', raw: false });
+          if (!rawJson || rawJson.length === 0) {
+            alert('The Excel file is empty.');
+            setIsParsing(false);
+            return;
+          }
+
+          const parsed = buildParsedDataFromRows(rawJson);
+          if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+            alert('The uploaded Excel file contains no valid rows or columns.');
+            setIsParsing(false);
+            return;
+          }
+
+          setParsedHeaders(parsed.headers);
+          setParsedRows(parsed.rows);
+          setDetectedDelimiter('Excel Spreadsheet');
+          setColumnMappings(parsed.suggestedMappings);
+
+          setFileName(file.name);
+          setIsParsing(false);
+          setActiveStep('mapping');
         } catch (err: any) {
           alert('Failed to parse Excel file: ' + err.message);
           setIsParsing(false);
@@ -155,6 +176,30 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({ groups, 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const downloadSampleXlsx = () => {
+    const headers = [
+      'Phone',
+      'Customer Name',
+      'Email',
+      'Group Name',
+      'City',
+      'Loyalty Tier',
+      'Order ID',
+      'Discount Code',
+      'Reward Points'
+    ];
+    const sampleRows = [
+      ['+919876543220', 'Vikram Singhania', 'vikram@example.com', 'VIP Club', 'Mumbai', 'Gold Tier', 'ORD-9021', 'FESTIVE25', '1450'],
+      ['+919876543221', 'Natasha Verma', 'natasha@example.com', 'VIP Club', 'Pune', 'Silver Tier', 'ORD-9022', 'FESTIVE15', '620'],
+      ['+919876543222', 'Aarav Patel', 'aarav@example.com', 'Diwali Promos', 'Delhi', 'Platinum Tier', 'ORD-9023', 'FESTIVE30', '3200'],
+      ['+919876543223', 'Meera Nambiar', 'meera@example.com', 'Weekend Leads', 'Bengaluru', 'Diamond Tier', 'ORD-9024', 'FREE_SPA', '2100']
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contacts');
+    XLSX.writeFile(wb, 'sample_whatsapp_contacts_template.xlsx');
   };
 
   // Modify column mapping role
@@ -406,13 +451,23 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({ groups, 
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center space-x-2 text-[11px] text-slate-400">
+          <div className="hidden sm:flex items-center space-x-3 text-[11px] text-slate-400">
             <button
               onClick={downloadSampleCsv}
-              className="flex items-center space-x-1 text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer"
+              className="flex items-center space-x-1 text-slate-300 hover:text-blue-400 transition-colors cursor-pointer"
+              title="Download sample CSV format"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5 text-blue-400" />
               <span>Sample CSV</span>
+            </button>
+            <span className="text-slate-700">•</span>
+            <button
+              onClick={downloadSampleXlsx}
+              className="flex items-center space-x-1 text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer"
+              title="Download sample Excel XLSX format"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Sample Excel</span>
             </button>
           </div>
         </div>
@@ -698,9 +753,32 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({ groups, 
                 </button>
               </div>
 
+              {/* Quick Auto-Detected Notice */}
+              <div className="bg-emerald-950/30 border border-emerald-800/40 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center space-x-2 text-emerald-300">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Phone numbers, customer names, and template variables (up to 25) have been auto-matched.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const phoneRole = Object.values(columnMappings).some(m => m.role === 'phone');
+                    if (!phoneRole && parsedHeaders.length > 0) {
+                      updateColumnRole(parsedHeaders[0], 'phone');
+                    }
+                    handleProceedToValidation();
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold cursor-pointer shrink-0 text-[11px]"
+                >
+                  Quick Import to Preview →
+                </button>
+              </div>
+
               {/* Column Mapping Table */}
-              <div className="border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                <table className="w-full text-left">
+              <div className="border border-slate-800 rounded-xl overflow-x-auto shadow-sm">
+                <table className="w-full text-left min-w-[600px]">
                   <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 text-[11px]">
                     <tr>
                       <th className="py-2.5 px-4">CSV Column Header</th>
@@ -763,15 +841,15 @@ export const ContactImportModal: React.FC<ContactImportModalProps> = ({ groups, 
                                 <option value="email">✉️ Email Address</option>
                                 <option value="group">📁 Contact Group</option>
                               </optgroup>
-                              <optgroup label="Template Variables">
-                                <option value="custom1">🏷️ Custom 1 (Variable 1)</option>
-                                <option value="custom2">🏷️ Custom 2 (Variable 2)</option>
-                                <option value="custom3">🏷️ Custom 3 (Variable 3)</option>
-                                <option value="custom4">🏷️ Custom 4 (Variable 4)</option>
-                                <option value="custom5">🏷️ Custom 5 (Variable 5)</option>
-                              </optgroup>
-                              <optgroup label="Dynamic Metadata & Actions">
-                                <option value="metadata">📦 Metadata Attribute</option>
+                              {mapping.role.startsWith('var') && (
+                                <optgroup label="Matched Template Variable">
+                                  <option value={mapping.role}>
+                                    ✨ Variable {mapping.role.replace('var', '')} ({`{{${mapping.role.replace('var', '')}}}`})
+                                  </option>
+                                </optgroup>
+                              )}
+                              <optgroup label="Dynamic Attributes & Actions">
+                                <option value="metadata">📦 Custom Column Attribute</option>
                                 <option value="ignore">🚫 Do Not Import (Ignore)</option>
                               </optgroup>
                             </select>
