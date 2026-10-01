@@ -1,22 +1,18 @@
-import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
 import { db, User, Client, Plan } from './server/db';
 import { CreditService } from './server/services/credit';
 import { WhatsAppCloudApiService } from './server/services/whatsapp';
 import { ContactService } from './server/services/contact';
 import { ImportService } from './server/services/import';
 import { CampaignService } from './server/services/campaign';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { cloudFirestore } from './server/services/firestore';
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -533,7 +529,36 @@ app.post('/api/client/templates/sync-meta', authenticateSession, async (req, res
 app.get('/api/client/whatsapp-config', authenticateSession, (req, res) => {
   const clientId = req.clientAccount?.id || req.currentUser?.client_id!;
   const wa = db.getWhatsAppAccount(clientId);
-  res.json({ success: true, whatsapp: wa });
+  const tp = db.getTechProviderConfig();
+  res.json({
+    success: true,
+    whatsapp: wa,
+    tech_provider: {
+      is_configured: tp.is_configured,
+      app_name: tp.app_name,
+      app_id: tp.app_id,
+      webhook_verify_token: tp.webhook_verify_token,
+      has_global_secret: !!(tp.app_secret && tp.app_secret.trim())
+    }
+  });
+});
+
+// Tech Provider Platform Configuration (Super Admin only)
+app.get('/api/admin/tech-provider-config', authenticateSession, requireSuperAdmin, (req, res) => {
+  const config = db.getTechProviderConfig();
+  res.json({ success: true, config });
+});
+
+app.put('/api/admin/tech-provider-config', authenticateSession, requireSuperAdmin, (req, res) => {
+  const { app_id, app_secret, app_name, webhook_verify_token, system_user_access_token } = req.body;
+  const updated = db.updateTechProviderConfig({
+    app_id: app_id !== undefined ? String(app_id).trim() : undefined,
+    app_secret: app_secret !== undefined ? String(app_secret).trim() : undefined,
+    app_name: app_name !== undefined ? String(app_name).trim() : undefined,
+    webhook_verify_token: webhook_verify_token !== undefined ? String(webhook_verify_token).trim() : undefined,
+    system_user_access_token: system_user_access_token !== undefined ? String(system_user_access_token).trim() : undefined
+  });
+  res.json({ success: true, config: updated, message: 'Tech Provider Global Configuration updated successfully.' });
 });
 
 app.put('/api/client/whatsapp-config', authenticateSession, (req, res) => {
@@ -560,11 +585,154 @@ app.put('/api/client/whatsapp-config', authenticateSession, (req, res) => {
   res.json({ success: true, whatsapp: updatedAccount });
 });
 
+// Test & Verify WhatsApp Cloud API Connection live against Meta Graph API
+app.post('/api/client/whatsapp-config/test', authenticateSession, async (req, res) => {
+  const clientId = req.clientAccount?.id || req.currentUser?.client_id!;
+  const existing = db.getWhatsAppAccount(clientId);
+
+  const token = (req.body.meta_access_token !== undefined ? req.body.meta_access_token : existing?.meta_access_token || '').trim();
+  const phoneId = (req.body.phone_number_id !== undefined ? req.body.phone_number_id : existing?.phone_number_id || '').trim();
+  const wabaId = (req.body.waba_id !== undefined ? req.body.waba_id : existing?.waba_id || '').trim();
+  const secret = (
+    req.body.app_secret !== undefined && req.body.app_secret.trim()
+      ? req.body.app_secret.trim()
+      : db.getEffectiveAppSecret(clientId)
+  );
+
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      error: 'Permanent Meta Access Token is required to test WhatsApp Cloud API connection.'
+    });
+  }
+  if (!phoneId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Meta Phone Number ID is required to test WhatsApp Cloud API connection.'
+    });
+  }
+
+  try {
+    // 1. Verify Phone Number details from Meta Graph API
+    const phoneUrl = WhatsAppCloudApiService.buildGraphUrl(
+      phoneId,
+      token,
+      secret,
+      { fields: 'display_phone_number,verified_name,code_verification_status,quality_rating,platform_type' }
+    );
+
+    const phoneRes = await fetch(phoneUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const phoneData = await phoneRes.json();
+
+    if (!phoneRes.ok) {
+      console.warn('Meta WhatsApp test phone check error:', phoneData);
+      const metaMsg = phoneData.error?.message || `Meta API Error ${phoneRes.status}: ${phoneRes.statusText}`;
+
+      if (phoneData.error?.message?.toLowerCase().includes('appsecret_proof') || phoneData.error?.code === 100) {
+        return res.status(400).json({
+          success: false,
+          errorCode: 100,
+          error:
+            'Meta Graph API Error (Code: 100): "API calls from the server require an appsecret_proof argument". Your Meta App has App Secret Proof enabled. Please enter your Meta App Secret so the server can compute the cryptographic proof.'
+        });
+      }
+      if (phoneData.error?.code === 190) {
+        return res.status(400).json({
+          success: false,
+          errorCode: 190,
+          error: 'Meta OAuth Token Error (Code: 190): The access token is invalid, expired, or does not have permissions for this WhatsApp Business Account.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        error: `Meta Graph API Error: ${metaMsg} (Code: ${phoneData.error?.code || phoneRes.status})`
+      });
+    }
+
+    // 2. Query WABA details if WABA ID is provided
+    let wabaData: any = null;
+    if (wabaId) {
+      try {
+        const wabaUrl = WhatsAppCloudApiService.buildGraphUrl(
+          wabaId,
+          token,
+          secret,
+          { fields: 'id,name,timezone_id,message_template_namespace' }
+        );
+        const wabaRes = await fetch(wabaUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        wabaData = await wabaRes.json();
+      } catch (e: any) {
+        console.warn('WABA check warning:', e.message);
+      }
+    }
+
+    // Update account with verified real data in server web database (never localStorage)
+    const updatedAccount = db.upsertWhatsAppAccount({
+      id: existing?.id || `WA-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+      client_id: clientId,
+      phone_number: phoneData.display_phone_number || existing?.phone_number || '',
+      display_name: phoneData.verified_name || existing?.display_name || 'My WhatsApp Business',
+      phone_number_id: phoneId,
+      waba_id: wabaId || existing?.waba_id || '',
+      business_id: wabaId || existing?.business_id || '',
+      meta_access_token: token,
+      app_secret: secret,
+      webhook_verify_token: req.body.webhook_verify_token || existing?.webhook_verify_token || 'JGMW4cEwjlkLRfQZS4CP8h9yCWjWNC1s4dOxps9q03a9ca82',
+      quality_rating: phoneData.quality_rating || existing?.quality_rating || 'GREEN',
+      status: 'CONNECTED',
+      created_at: existing?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: 'Success! You are now connected to Whatsapp Cloud',
+      phone: phoneData,
+      waba: wabaData,
+      whatsapp: updatedAccount
+    });
+  } catch (err: any) {
+    console.error('Exception verifying WhatsApp Cloud API:', err);
+    res.status(500).json({
+      success: false,
+      error: `Network error connecting to Meta Graph API: ${err.message}`
+    });
+  }
+});
+
 // Remove all dummy data endpoint
 app.post('/api/client/clear-dummy-data', authenticateSession, (req, res) => {
   const clientId = req.clientAccount?.id || req.currentUser?.client_id!;
   db.clearDummyData(clientId);
   res.json({ success: true, message: 'All dummy contacts, campaigns, and chat data cleared.' });
+});
+
+// -------------------------------------------------------------
+// GOOGLE CLOUD FIRESTORE STORAGE ENDPOINTS (Free Tier)
+// -------------------------------------------------------------
+app.get('/api/client/cloud-storage/status', authenticateSession, (req, res) => {
+  const status = cloudFirestore.getStatus(db.getRawData());
+  res.json({ success: true, cloudStorage: status });
+});
+
+app.post('/api/client/cloud-storage/sync', authenticateSession, async (req, res) => {
+  const result = await cloudFirestore.syncAllRecords(db.getRawData());
+  res.json({
+    success: result.success,
+    synced: result.synced,
+    error: result.error,
+    cloudStorage: cloudFirestore.getStatus(db.getRawData())
+  });
 });
 
 // -------------------------------------------------------------
@@ -989,7 +1157,6 @@ app.put('/api/admin/clients/:id/whatsapp', authenticateSession, requireSuperAdmi
     waba_id: req.body.waba_id,
     business_id: req.body.business_id,
     meta_access_token: req.body.meta_access_token,
-    app_secret: req.body.app_secret !== undefined ? req.body.app_secret : existing?.app_secret || '',
     webhook_verify_token: req.body.webhook_verify_token || `meta_verify_${clientId.toLowerCase()}`,
     quality_rating: req.body.quality_rating || 'GREEN',
     status: req.body.status || 'CONNECTED',
@@ -1273,111 +1440,35 @@ app.get('/api/v1/templates', authenticateClientApiToken, (req, res) => {
 
 // -------------------------------------------------------------
 // 5. META WHATSAPP WEBHOOK ENDPOINTS
+// Supports /api/v1/webhook, /webhook/whatsapp, /webhook/wpbox/receive/:token
 // -------------------------------------------------------------
-// Supported paths for Meta Webhooks
-const WEBHOOK_PATHS = ['/api/v1/webhook', '/api/webhook', '/webhook'];
+const webhookRoutes = [
+  '/api/v1/webhook',
+  '/webhook/whatsapp',
+  '/webhook/wpbox/receive',
+  '/webhook/wpbox/receive/:token'
+];
 
 // Verification challenge for Meta Developer portal
-app.get(WEBHOOK_PATHS, (req, res) => {
+app.get(webhookRoutes, (req, res) => {
   const mode = req.query['hub.mode'] as string;
-  const token = req.query['hub.verify_token'] as string;
+  const token = (req.query['hub.verify_token'] as string) || req.params.token;
   const challenge = req.query['hub.challenge'] as string;
+  const pathToken = req.params.token;
 
-  console.log(`[Meta Webhook] GET Verification attempt on ${req.path} (token: ${token || 'none'})`);
-
-  const verify = WhatsAppCloudApiService.verifyWebhook(mode, token, challenge);
+  const verify = WhatsAppCloudApiService.verifyWebhook(mode, token, challenge, pathToken);
   if (verify.valid) {
-    console.log('[Meta Webhook] Verification PASSED — returning challenge to Meta');
-    return res.status(200).type('text/plain').send(verify.challenge);
+    return res.status(200).send(verify.challenge);
   }
-  console.warn('[Meta Webhook] Verification FAILED — mode or token mismatch');
   return res.status(403).send('Forbidden');
 });
 
 // Incoming webhook status & message events from Meta
-app.post(WEBHOOK_PATHS, (req, res) => {
+app.post(webhookRoutes, (req, res) => {
   const payload = req.body;
-  console.log(`[Meta Webhook] POST event received on ${req.path}`);
-  const results = WhatsAppCloudApiService.processWebhookPayload(payload);
-  console.log(`[Meta Webhook] Successfully processed ${results.length} action(s)`);
+  const pathToken = req.params.token;
+  const results = WhatsAppCloudApiService.processWebhookPayload(payload, pathToken);
   res.status(200).json({ success: true, processed: results.length });
-});
-
-// Super Admin Webhook diagnostic & connection info (Clients CANNOT access - Super Admin only)
-app.get('/api/admin/webhook-info', authenticateSession, requireSuperAdmin, (req, res) => {
-  const clientId = (req.query.clientId as string) || req.clientAccount?.id || 'CLT-00001';
-  const wa = db.getWhatsAppAccount(clientId);
-  const webhookLogs = db.getWebhookLogs(clientId);
-  const host = req.get('x-forwarded-host') || req.get('host') || req.hostname;
-  const protocol = req.get('x-forwarded-proto') || (req.protocol === 'https' ? 'https' : 'http');
-
-  res.json({
-    success: true,
-    callback_url: `${protocol}://${host}/api/v1/webhook`,
-    alternative_url: `${protocol}://${host}/webhook`,
-    verify_token: wa?.webhook_verify_token || 'meta_verify_token_secure_2026',
-    status: wa?.status || 'CONNECTED',
-    phone_number: wa?.phone_number,
-    phone_number_id: wa?.phone_number_id,
-    waba_id: wa?.waba_id,
-    recent_logs: webhookLogs.slice(0, 10),
-    total_events: webhookLogs.length,
-    last_event_time: webhookLogs[0]?.created_at || null
-  });
-});
-
-// Super Admin test inbound message simulator (Restricted to Super Admin)
-app.post('/api/admin/webhook-test', authenticateSession, requireSuperAdmin, (req, res) => {
-  const clientId = (req.body.clientId as string) || req.clientAccount?.id || 'CLT-00001';
-  const wa = db.getWhatsAppAccount(clientId);
-  const { phone = '+919067348975', text = 'Hello from WhatsApp! Testing incoming chat receipt.' } = req.body;
-
-  const testPayload = {
-    object: 'whatsapp_business_account',
-    entry: [
-      {
-        id: wa?.waba_id || '925211430661331',
-        changes: [
-          {
-            value: {
-              messaging_product: 'whatsapp',
-              metadata: {
-                display_phone_number: wa?.phone_number || '15553602693',
-                phone_number_id: wa?.phone_number_id || '1202009439672545'
-              },
-              contacts: [
-                {
-                  profile: { name: 'Customer Test' },
-                  wa_id: phone.replace(/\D/g, '')
-                }
-              ],
-              messages: [
-                {
-                  from: phone.replace(/\D/g, ''),
-                  id: `wamid.test_${Date.now()}`,
-                  timestamp: Math.floor(Date.now() / 1000).toString(),
-                  text: { body: text },
-                  type: 'text'
-                }
-              ]
-            },
-            field: 'messages'
-          }
-        ]
-      }
-    ]
-  };
-
-  const results = WhatsAppCloudApiService.processWebhookPayload(testPayload, clientId);
-  res.json({ success: true, message: 'Test webhook event processed successfully', results });
-});
-
-// Explicitly deny client access to webhook endpoints
-app.all('/api/client/webhook*', authenticateSession, (_req, res) => {
-  res.status(403).json({
-    success: false,
-    error: 'Access Denied: Webhook configuration is restricted to Super Admin only.'
-  });
 });
 
 // Webhook simulation endpoint for Admin testing
@@ -1409,27 +1500,39 @@ app.post('/api/admin/simulate-webhook-status', authenticateSession, requireSuper
 // VITE DEV MIDDLEWARE INTEGRATION
 // -------------------------------------------------------------
 async function startServer() {
-  const distPath = path.resolve(__dirname, 'dist');
-  const indexHtml = path.join(distPath, 'index.html');
-
-  if (process.env.NODE_ENV === 'production' || fs.existsSync(indexHtml)) {
-    if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
-    }
-    app.get('*', (_req, res) => {
-      if (fs.existsSync(indexHtml)) {
-        res.sendFile(indexHtml);
-      } else {
-        res.status(200).send('Platform starting up...');
-      }
-    });
-  } else {
+  if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa'
+      appType: 'custom'
     });
     app.use(vite.middlewares);
+
+    // SPA fallback: transform and serve index.html for all non-API/non-webhook routes
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api') || url.startsWith('/webhook')) {
+        return next();
+      }
+      try {
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        let template = fs.readFileSync(indexPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace?.(e);
+        next(e);
+      }
+    });
+  } else {
+    const distPath = path.resolve(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/webhook')) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

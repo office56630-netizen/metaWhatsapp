@@ -10,7 +10,9 @@ import {
   Phone,
   Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Cloud,
+  Database
 } from 'lucide-react';
 import { api } from '../../api';
 import { CampaignMessage, Campaign } from '../../types';
@@ -90,6 +92,17 @@ export const CampaignRecords: React.FC<CampaignRecordsProps> = ({ initialCampaig
         {/* Export Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={async () => {
+              await api.syncCloudStorage();
+              fetchRecords();
+            }}
+            className="flex items-center space-x-1.5 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition-all"
+            title="Synchronize all campaign records to Google Cloud Firestore database"
+          >
+            <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Sync to Google Cloud</span>
+          </button>
+          <button
             onClick={() => handleExport(undefined, 'csv')}
             className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
           >
@@ -111,6 +124,19 @@ export const CampaignRecords: React.FC<CampaignRecordsProps> = ({ initialCampaig
             <span>Download Failed</span>
           </button>
         </div>
+      </div>
+
+      {/* Google Cloud Firestore Storage Banner */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center justify-between flex-wrap gap-2 text-xs">
+        <div className="flex items-center space-x-2 text-slate-300">
+          <Database className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            Database Storage: <strong className="text-white">Google Cloud Firestore</strong> (Free Tier) • Collection: <code className="text-emerald-400 font-mono text-[11px]">/campaign_messages</code>
+          </span>
+        </div>
+        <span className="text-[11px] text-slate-400 font-mono">
+          Project: gleaming-dispatch-1kx2q
+        </span>
       </div>
 
       {/* Filter Bar */}

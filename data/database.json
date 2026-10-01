@@ -8,8 +8,8 @@
       "password_hash": "admin123",
       "role": "super_admin",
       "status": "active",
-      "created_at": "2026-09-29T15:18:02.356Z",
-      "updated_at": "2026-09-29T15:18:02.356Z"
+      "created_at": "2026-09-30T14:24:51.140Z",
+      "updated_at": "2026-09-30T14:24:51.140Z"
     },
     {
       "id": "USR-CLT1-ADMIN",
@@ -19,8 +19,8 @@
       "password_hash": "client123",
       "role": "client_admin",
       "status": "active",
-      "created_at": "2026-09-29T15:18:02.356Z",
-      "updated_at": "2026-09-29T15:18:02.356Z"
+      "created_at": "2026-09-30T14:24:51.140Z",
+      "updated_at": "2026-09-30T14:24:51.140Z"
     }
   ],
   "plans": [
@@ -87,80 +87,36 @@
       "campaign_message_limit": 500000,
       "campaign_messages_sent": 0,
       "api_token": "waba_live_livebusinesskey2026",
-      "api_token_created_at": "2026-09-29T15:18:02.356Z",
+      "api_token_created_at": "2026-09-30T14:24:51.139Z",
       "api_status": "active",
-      "created_at": "2026-09-29T15:18:02.356Z",
-      "updated_at": "2026-09-29T15:18:02.356Z"
+      "created_at": "2026-09-30T14:24:51.140Z",
+      "updated_at": "2026-09-30T14:24:51.140Z"
     }
   ],
   "whatsapp_accounts": [
     {
       "id": "WA-00001",
       "client_id": "CLT-00001",
-      "phone_number": "‎+15553602693",
+      "phone_number": "",
       "display_name": "My WhatsApp Business",
-      "phone_number_id": "1202009439672545",
-      "waba_id": "925211430661331",
-      "business_id": "1564089478791298",
-      "meta_access_token": "EAAOKAgEeOs4BSe5b9ZCqkh7y0UY0sVmC7JLvCz8FEq8L7CdjTdgSL5spNZBn3iQbmp0eoEKVXhHxzlYdck1ib23FLLdBWTB8S4ktQph0KqVFpBmjku832A5NpitELezOdoO7xxKvgQ3mHSm80RCcyKCFONaHrIBTA8FmX0cqPAMWQhyiV1VqGiDlbqZBVgKLQZDZD",
-      "app_secret": "6912a015ebb9131b92b23094e09825d1",
+      "phone_number_id": "",
+      "waba_id": "",
+      "business_id": "",
+      "meta_access_token": "",
+      "app_secret": "",
       "webhook_verify_token": "meta_verify_token_secure_2026",
-      "quality_rating": "GREEN",
-      "status": "CONNECTED",
-      "created_at": "2026-09-29T15:18:02.356Z",
-      "updated_at": "2026-09-29T15:19:13.112Z"
+      "quality_rating": "UNKNOWN",
+      "status": "DISCONNECTED",
+      "created_at": "2026-09-30T14:24:51.140Z",
+      "updated_at": "2026-09-30T15:00:00.000Z"
     }
   ],
   "contact_groups": [],
-  "contacts": [
-    {
-      "id": "CNT-ECC26C6D",
-      "client_id": "CLT-00001",
-      "name": "Raj office",
-      "phone": "+919067348975",
-      "email": "office56630@gmail.com",
-      "group_id": null,
-      "metadata": {},
-      "status": "active",
-      "created_at": "2026-09-29T15:23:50.082Z",
-      "updated_at": "2026-09-29T15:23:50.082Z"
-    }
-  ],
-  "templates": [
-    {
-      "id": "TPL-1592882722545871",
-      "client_id": "CLT-00001",
-      "name": "test_msg",
-      "category": "UTILITY",
-      "language": "en_US",
-      "status": "APPROVED",
-      "header_type": "TEXT",
-      "header_content": "Address update",
-      "body_text": "Hi {{1}}, your delivery address has been successfully updated to {{2}}. Contact {{3}} for any inquiries.",
-      "variables": [
-        "1",
-        "2",
-        "3"
-      ],
-      "created_at": "2026-09-29T15:22:12.386Z"
-    }
-  ],
+  "contacts": [],
+  "templates": [],
   "campaigns": [],
   "campaign_messages": [],
-  "chat_messages": [
-    {
-      "id": "wamid.HBgMOTE5MDY3MzQ4OTc1FQIAERgSM0U3OUQ1MjdDNjRCNjg2MDk5AA==",
-      "client_id": "CLT-00001",
-      "contact_id": "CNT-ECC26C6D",
-      "customer_phone": "+919067348975",
-      "customer_name": "Raj office",
-      "sender": "business",
-      "message_type": "text",
-      "text": "hi",
-      "status": "Sent",
-      "created_at": "2026-09-29T15:24:10.357Z"
-    }
-  ],
+  "chat_messages": [],
   "credit_transactions": [
     {
       "id": "TXN-001",
@@ -171,7 +127,7 @@
       "balance_before": 0,
       "balance_after": 100000,
       "description": "Account activation credit grant: 100,000 Marketing Credits",
-      "created_at": "2026-09-29T15:18:02.356Z"
+      "created_at": "2026-09-30T14:24:51.140Z"
     },
     {
       "id": "TXN-002",
@@ -182,71 +138,19 @@
       "balance_before": 0,
       "balance_after": 100000,
       "description": "Account activation credit grant: 100,000 Utility Credits",
-      "created_at": "2026-09-29T15:18:02.356Z"
+      "created_at": "2026-09-30T14:24:51.140Z"
     }
   ],
   "api_logs": [],
   "webhook_logs": [],
-  "audit_logs": [
-    {
-      "id": "AUD-7B0D2695",
-      "user_id": "USR-SUPERADMIN",
-      "user_name": "Master Platform Admin",
-      "client_id": "CLT-00001",
-      "action": "ADMIN_IMPERSONATION_START",
-      "details": "Super Admin started viewing as client My WhatsApp Business (CLT-00001)",
-      "ip": "127.0.0.1",
-      "created_at": "2026-09-29T15:22:49.210Z"
-    },
-    {
-      "id": "AUD-24A361DD",
-      "user_id": "SYSTEM",
-      "user_name": "Meta Sync Engine",
-      "client_id": "CLT-00001",
-      "action": "TEMPLATES_SYNCED",
-      "details": "Successfully fetched and synced 1 real templates from Meta WABA ID 925211430661331",
-      "ip": "127.0.0.1",
-      "created_at": "2026-09-29T15:22:12.386Z"
-    },
-    {
-      "id": "AUD-88C6FE70",
-      "user_id": "USR-SUPERADMIN",
-      "user_name": "Master Platform Admin",
-      "client_id": "CLT-00001",
-      "action": "ADMIN_IMPERSONATION_START",
-      "details": "Super Admin started viewing as client My WhatsApp Business (CLT-00001)",
-      "ip": "127.0.0.1",
-      "created_at": "2026-09-29T15:19:24.238Z"
-    },
-    {
-      "id": "AUD-CB222E52",
-      "user_id": "USR-SUPERADMIN",
-      "user_name": "Master Platform Admin",
-      "client_id": "CLT-00001",
-      "action": "WHATSAPP_CONFIG_UPDATED",
-      "details": "Updated WhatsApp credentials (Phone ID: 1202009439672545)",
-      "ip": "127.0.0.1",
-      "created_at": "2026-09-29T15:19:13.112Z"
-    }
-  ],
-  "admin_impersonation_logs": [
-    {
-      "id": "IMP-LOG-89459E35",
-      "admin_id": "USR-SUPERADMIN",
-      "admin_email": "admin@whatsappplatform.io",
-      "client_id": "CLT-00001",
-      "client_company": "My WhatsApp Business",
-      "login_time": "2026-09-29T15:22:49.210Z",
-      "ip": "127.0.0.1"
-    },
-    {
-      "id": "IMP-LOG-7D07A0C4",
-      "admin_id": "USR-SUPERADMIN",
-      "admin_email": "admin@whatsappplatform.io",
-      "client_id": "CLT-00001",
-      "client_company": "My WhatsApp Business",
-      "login_time": "2026-09-29T15:19:24.238Z",
-      "ip": "127.0.0.1"
-    }
-  ]
+  "audit_logs": [],
+  "admin_impersonation_logs": [],
+  "tech_provider": {
+    "app_id": "1052719167920294",
+    "app_secret": "6912a015ebb9131b92b23094e09825d1",
+    "app_name": "Official WhatsApp Tech Provider",
+    "webhook_verify_token": "meta_verify_token_secure_2026",
+    "is_configured": true,
+    "updated_at": "2026-10-01T03:40:00.000Z"
+  }
 }

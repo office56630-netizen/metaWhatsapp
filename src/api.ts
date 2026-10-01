@@ -9,32 +9,6 @@ const getHeaders = (extraHeaders?: Record<string, string>) => {
   };
 };
 
-/**
- * Robust JSON response handler that guards against HTML responses
- * (e.g. AI Studio iframe cookie check pages or server proxy errors)
- */
-async function handleResponse(res: Response): Promise<any> {
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await res.text();
-    if (text.includes('Cookie check') || text.includes('__SECURE-aistudio_auth_flow') || text.includes('<!doctype html>')) {
-      return {
-        success: false,
-        error: 'Browser blocked required security cookies or session check required. Please reload the app or grant cookie permissions.'
-      };
-    }
-    try {
-      return JSON.parse(text);
-    } catch {
-      return {
-        success: false,
-        error: res.statusText || `Server responded with status ${res.status}`
-      };
-    }
-  }
-  return res.json();
-}
-
 export const api = {
   // Auth
   login: async (email: string, password: string) => {
@@ -43,14 +17,14 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   getMe: async () => {
     const res = await fetch('/api/auth/me', {
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   impersonate: async (clientId: string) => {
@@ -59,7 +33,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ clientId })
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   stopImpersonation: async () => {
@@ -67,13 +41,13 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   // Client Dashboard
   getClientDashboard: async () => {
     const res = await fetch('/api/client/dashboard', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   getContacts: async (params?: { groupId?: string; search?: string; status?: string; limit?: number; offset?: number }) => {
@@ -199,6 +173,15 @@ export const api = {
     return res.json();
   },
 
+  syncMetaTemplates: async (params?: { wabaId?: string; metaAccessToken?: string; appSecret?: string }) => {
+    const res = await fetch('/api/client/templates/sync-meta', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(params || {})
+    });
+    return res.json();
+  },
+
   getWhatsAppConfig: async () => {
     const res = await fetch('/api/client/whatsapp-config', { headers: getHeaders() });
     return res.json();
@@ -216,14 +199,14 @@ export const api = {
   // Live Chat & Customer Inbox
   getChatConversations: async () => {
     const res = await fetch('/api/client/chat/conversations', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   getChatMessages: async (phone: string) => {
     const res = await fetch(`/api/client/chat/messages/${encodeURIComponent(phone)}`, {
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   sendChatMessage: async (data: {
@@ -238,17 +221,26 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    return handleResponse(res);
+    return res.json();
+  },
+
+  simulateInboundChat: async (data: { phone: string; text: string; name?: string }) => {
+    const res = await fetch('/api/client/chat/simulate-inbound', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
   },
 
   getCampaigns: async () => {
     const res = await fetch('/api/client/campaigns', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   getCampaignById: async (id: string) => {
     const res = await fetch(`/api/client/campaigns/${id}`, { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   createCampaign: async (campaignData: any) => {
@@ -257,7 +249,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(campaignData)
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   pauseCampaign: async (id: string) => {
@@ -265,7 +257,7 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   resumeCampaign: async (id: string) => {
@@ -273,7 +265,7 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   cancelCampaign: async (id: string) => {
@@ -281,7 +273,7 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   getCampaignRecords: async (params?: { campaignId?: string; status?: string; phone?: string; search?: string; limit?: number; offset?: number }) => {
@@ -293,17 +285,21 @@ export const api = {
     if (params?.limit) q.set('limit', String(params.limit));
     if (params?.offset) q.set('offset', String(params.offset));
     const res = await fetch(`/api/client/campaign-records?${q.toString()}`, { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
+  },
+
+  getCampaignMessages: async (params?: { campaignId?: string; status?: string; phone?: string; search?: string; limit?: number; offset?: number }) => {
+    return api.getCampaignRecords(params);
   },
 
   getCredits: async () => {
     const res = await fetch('/api/client/credits', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   getApiToken: async () => {
     const res = await fetch('/api/client/api-token', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   regenerateApiToken: async () => {
@@ -311,18 +307,18 @@ export const api = {
       method: 'POST',
       headers: getHeaders()
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   getApiLogs: async () => {
     const res = await fetch('/api/client/api-logs', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   // Super Admin
   getAdminDashboard: async () => {
     const res = await fetch('/api/admin/dashboard', { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   createClient: async (data: any) => {
@@ -331,7 +327,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   updateClient: async (id: string, data: any) => {
@@ -340,7 +336,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   adjustCredits: async (id: string, data: { credit_type: 'marketing' | 'utility'; amount: number; description?: string }) => {
@@ -349,12 +345,12 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   getClientWhatsApp: async (clientId: string) => {
     const res = await fetch(`/api/admin/clients/${clientId}/whatsapp`, { headers: getHeaders() });
-    return handleResponse(res);
+    return res.json();
   },
 
   updateClientWhatsApp: async (clientId: string, data: any) => {
@@ -363,27 +359,12 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    return handleResponse(res);
+    return res.json();
   },
 
   getAdminLogs: async () => {
     const res = await fetch('/api/admin/logs', { headers: getHeaders() });
-    return handleResponse(res);
-  },
-
-  getAdminWebhookInfo: async (clientId?: string) => {
-    const q = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
-    const res = await fetch(`/api/admin/webhook-info${q}`, { headers: getHeaders() });
-    return handleResponse(res);
-  },
-
-  testAdminWebhook: async (data?: { clientId?: string; phone?: string; text?: string }) => {
-    const res = await fetch('/api/admin/webhook-test', {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data || {})
-    });
-    return handleResponse(res);
+    return res.json();
   },
 
   simulateWebhookStatus: async (message_id: string, status: string) => {
@@ -392,7 +373,60 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ message_id, status })
     });
-    return handleResponse(res);
+    return res.json();
+  },
+
+  // Client WhatsApp Account Configuration (Stored on web server DB, never localStorage)
+  getClientWhatsAppConfig: async () => {
+    const res = await fetch('/api/client/whatsapp-config', { headers: getHeaders() });
+    return res.json();
+  },
+
+  updateClientWhatsAppConfig: async (data: any) => {
+    const res = await fetch('/api/client/whatsapp-config', {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  testClientWhatsAppConnection: async (data?: any) => {
+    const res = await fetch('/api/client/whatsapp-config/test', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: data ? JSON.stringify(data) : undefined
+    });
+    return res.json();
+  },
+
+  // Google Cloud Firestore Storage (Free Tier)
+  getCloudStorageStatus: async () => {
+    const res = await fetch('/api/client/cloud-storage/status', { headers: getHeaders() });
+    return res.json();
+  },
+
+  syncCloudStorage: async () => {
+    const res = await fetch('/api/client/cloud-storage/sync', {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return res.json();
+  },
+
+  // Tech Provider Configuration (Super Admin)
+  getTechProviderConfig: async () => {
+    const res = await fetch('/api/admin/tech-provider-config', { headers: getHeaders() });
+    return res.json();
+  },
+
+  updateTechProviderConfig: async (data: any) => {
+    const res = await fetch('/api/admin/tech-provider-config', {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
   },
 
   // Direct REST API test call helper (uses Bearer token)

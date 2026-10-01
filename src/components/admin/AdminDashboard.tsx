@@ -19,6 +19,7 @@ import {
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Client } from '../../types';
+import { TechProviderSettingsModal } from './TechProviderSettingsModal';
 
 interface AdminDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -34,6 +35,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const { impersonateClient } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showTechProviderModal, setShowTechProviderModal] = useState(false);
 
   const fetchAdminDashboard = async () => {
     setLoading(true);
@@ -78,11 +80,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </p>
         </div>
 
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          <button
+            onClick={() => setShowTechProviderModal(true)}
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition-all"
+            title="Configure centralized Meta Developer App credentials for all tenants"
+          >
+            <ShieldCheck className="w-4 h-4 text-purple-200" />
+            <span>Tech Provider Credentials</span>
+          </button>
+          <button
+            onClick={fetchAdminDashboard}
+            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Tech Provider Architecture Banner */}
+      <div className="bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-900 border border-purple-800/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30 shrink-0">
+            <Radio className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-bold text-white">Centralized Tech Provider Architecture Active</span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-emerald-500/30">
+                Single App Secret Mode
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Tenants inherit your platform's Meta App Secret automatically. Individual tenant accounts never need to see, configure, or paste the Meta App Secret.
+            </p>
+          </div>
+        </div>
         <button
-          onClick={fetchAdminDashboard}
-          className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer self-start sm:self-auto"
+          onClick={() => setShowTechProviderModal(true)}
+          className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold cursor-pointer self-start sm:self-auto transition-all shrink-0"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+          Manage App Secret
         </button>
       </div>
 
@@ -277,6 +315,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </table>
         </div>
       </div>
+
+      {showTechProviderModal && (
+        <TechProviderSettingsModal
+          onClose={() => setShowTechProviderModal(false)}
+          onSuccess={() => {
+            fetchAdminDashboard();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -12,6 +12,8 @@ import { ApiDocumentation } from './components/client/ApiDocumentation';
 import { ApiLogs } from './components/client/ApiLogs';
 import { DownloadTemplates } from './components/client/DownloadTemplates';
 import { ClientLiveChat } from './components/client/ClientLiveChat';
+import { WhatsAppApiSetup } from './components/client/WhatsAppApiSetup';
+import { CloudStorageManager } from './components/client/CloudStorageManager';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ClientsManager } from './components/admin/ClientsManager';
 import { WebhookSimulator } from './components/admin/WebhookSimulator';
@@ -100,6 +102,8 @@ const AppContent: React.FC = () => {
               /* CLIENT ROUTING */
               <>
                 {activeTab === 'dashboard' && <ClientDashboard onNavigate={setActiveTab} />}
+                {activeTab === 'whatsapp_setup' && <WhatsAppApiSetup onNavigateTab={setActiveTab} />}
+                {activeTab === 'cloud_storage' && <CloudStorageManager onNavigateTab={setActiveTab} />}
                 {activeTab === 'chat' && <ClientLiveChat />}
                 {(activeTab === 'contacts' || activeTab === 'groups') && <ContactsManager />}
                 {activeTab === 'templates' && <TemplatesCatalog />}

@@ -54,6 +54,24 @@ export interface WhatsAppAccount {
   updated_at: string;
 }
 
+export interface TechProviderConfig {
+  app_id: string;
+  app_secret: string;
+  app_name: string;
+  webhook_verify_token: string;
+  system_user_access_token?: string;
+  is_configured: boolean;
+  updated_at: string;
+}
+
+export interface TechProviderStatus {
+  is_configured: boolean;
+  app_name: string;
+  app_id: string;
+  webhook_verify_token: string;
+  has_global_secret?: boolean;
+}
+
 export interface ContactGroup {
   id: string;
   client_id: string;

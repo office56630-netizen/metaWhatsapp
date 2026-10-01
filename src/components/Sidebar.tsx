@@ -15,12 +15,15 @@ import {
   Building2,
   Radio,
   FileCheck2,
-  MessageSquare
+  MessageSquare,
+  Database
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export type ClientTab =
   | 'dashboard'
+  | 'whatsapp_setup'
+  | 'cloud_storage'
   | 'chat'
   | 'contacts'
   | 'groups'
@@ -137,6 +140,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, mobile
                   onClick={() => handleSelect('dashboard')}
                 />
                 <NavItem
+                  active={activeTab === 'whatsapp_setup'}
+                  icon={<Radio className="w-4 h-4 text-emerald-400" />}
+                  label="WhatsApp Cloud API"
+                  badge="Setup"
+                  onClick={() => onSelectTab('whatsapp_setup')}
+                />
+                <NavItem
                   active={activeTab === 'chat'}
                   icon={<MessageSquare className="w-4 h-4 text-emerald-400" />}
                   label="Live Chat & Inbox"
@@ -202,6 +212,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, mobile
                 Finance & Developer
               </div>
               <nav className="space-y-1">
+                <NavItem
+                  active={activeTab === 'cloud_storage'}
+                  icon={<Database className="w-4 h-4 text-emerald-400" />}
+                  label="Google Cloud Storage"
+                  badge="Free Tier"
+                  onClick={() => onSelectTab('cloud_storage')}
+                />
                 <NavItem
                   active={activeTab === 'credits'}
                   icon={<CreditCard className="w-4 h-4" />}

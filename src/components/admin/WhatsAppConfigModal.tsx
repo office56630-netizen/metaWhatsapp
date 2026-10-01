@@ -178,16 +178,19 @@ export const WhatsAppConfigModal: React.FC<WhatsAppConfigModalProps> = ({ client
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Meta App Secret (App Secret Proof HMAC-SHA256)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-slate-400">Meta App Secret (Optional)</label>
+                <span className="text-[10px] text-purple-400 font-medium">Auto-inherits Platform Tech Provider Secret</span>
+              </div>
               <input
                 type="password"
-                value={formData.app_secret}
+                value={formData.app_secret || ''}
                 onChange={(e) => setFormData({ ...formData, app_secret: e.target.value })}
-                placeholder="e.g. 6912a015ebb9131b92b23094e09825d1"
+                placeholder="Leave blank to use platform Tech Provider App Secret"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500"
               />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Found in Meta App Dashboard &gt; App settings &gt; Basic &gt; App Secret. Used to compute <code>appsecret_proof</code> to resolve Code 100 errors.
+              <p className="text-[11px] text-slate-500 mt-1">
+                Leave empty to automatically use the centralized Platform Tech Provider App Secret for HMAC-SHA256 proofs.
               </p>
             </div>
 

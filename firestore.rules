@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Clients Collection
+    match /clients/{clientId} {
+      allow read: if isSignedIn() && isValidId(clientId);
+      allow write: if isSignedIn() && isValidId(clientId);
+    }
+
+    // WhatsApp Accounts Configuration
+    match /whatsapp_accounts/{accountId} {
+      allow read: if isSignedIn() && isValidId(accountId);
+      allow write: if isSignedIn() && isValidId(accountId);
+    }
+
+    // Broadcast Campaigns
+    match /campaigns/{campaignId} {
+      allow read: if isSignedIn() && isValidId(campaignId);
+      allow write: if isSignedIn() && isValidId(campaignId);
+    }
+
+    // Campaign Message Records
+    match /campaign_messages/{messageId} {
+      allow read: if isSignedIn() && isValidId(messageId);
+      allow write: if isSignedIn() && isValidId(messageId);
+    }
+
+    // Contacts
+    match /contacts/{contactId} {
+      allow read: if isSignedIn() && isValidId(contactId);
+      allow write: if isSignedIn() && isValidId(contactId);
+    }
+
+    // Templates
+    match /templates/{templateId} {
+      allow read: if isSignedIn() && isValidId(templateId);
+      allow write: if isSignedIn() && isValidId(templateId);
+    }
+
+    // Chat Messages
+    match /chat_messages/{chatId} {
+      allow read: if isSignedIn() && isValidId(chatId);
+      allow write: if isSignedIn() && isValidId(chatId);
+    }
+
+    // Credit Transactions
+    match /credit_transactions/{txnId} {
+      allow read: if isSignedIn() && isValidId(txnId);
+      allow write: if isSignedIn() && isValidId(txnId);
+    }
+  }
+}

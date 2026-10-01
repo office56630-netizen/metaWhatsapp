@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { cloudFirestore } from './services/firestore';
 
 // Data types matching relational schema specifications
 export interface User {
@@ -248,6 +249,16 @@ export interface ChatConversation {
   window_expires_at?: string;
 }
 
+export interface TechProviderConfig {
+  app_id: string;
+  app_secret: string;
+  app_name: string;
+  webhook_verify_token: string;
+  system_user_access_token?: string;
+  is_configured: boolean;
+  updated_at: string;
+}
+
 export interface DatabaseSchema {
   users: User[];
   plans: Plan[];
@@ -264,6 +275,7 @@ export interface DatabaseSchema {
   webhook_logs: WebhookLog[];
   audit_logs: AuditLog[];
   admin_impersonation_logs: AdminImpersonationLog[];
+  tech_provider?: TechProviderConfig;
 }
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -287,6 +299,16 @@ class DatabaseEngine {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (!parsed.chat_messages) parsed.chat_messages = [];
+        if (!parsed.tech_provider) {
+          parsed.tech_provider = {
+            app_id: '1052719167920294',
+            app_secret: '6912a015ebb9131b92b23094e09825d1',
+            app_name: 'Official WhatsApp Tech Provider',
+            webhook_verify_token: 'meta_verify_token_secure_2026',
+            is_configured: true,
+            updated_at: new Date().toISOString()
+          };
+        }
         return parsed;
       } catch (e) {
         console.error('Failed to parse database file, initializing seeds...', e);
@@ -417,8 +439,8 @@ class DatabaseEngine {
         meta_access_token: '',
         app_secret: '',
         webhook_verify_token: 'meta_verify_token_secure_2026',
-        quality_rating: 'GREEN',
-        status: 'CONNECTED',
+        quality_rating: 'UNKNOWN',
+        status: 'DISCONNECTED',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -473,7 +495,15 @@ class DatabaseEngine {
       api_logs,
       webhook_logs,
       audit_logs,
-      admin_impersonation_logs: []
+      admin_impersonation_logs: [],
+      tech_provider: {
+        app_id: '1052719167920294',
+        app_secret: '6912a015ebb9131b92b23094e09825d1',
+        app_name: 'Official WhatsApp Tech Provider',
+        webhook_verify_token: 'meta_verify_token_secure_2026',
+        is_configured: true,
+        updated_at: new Date().toISOString()
+      }
     };
   }
 
@@ -522,6 +552,7 @@ class DatabaseEngine {
   public insertContact(contact: Contact) {
     this.data.contacts.unshift(contact);
     this.persist();
+    cloudFirestore.saveDocument('contacts', contact.id, contact).catch(() => {});
     return contact;
   }
 
@@ -530,6 +561,7 @@ class DatabaseEngine {
     if (idx === -1) return null;
     this.data.contacts[idx] = { ...this.data.contacts[idx], ...patch, updated_at: new Date().toISOString() };
     this.persist();
+    cloudFirestore.saveDocument('contacts', id, this.data.contacts[idx]).catch(() => {});
     return this.data.contacts[idx];
   }
 
@@ -625,6 +657,7 @@ class DatabaseEngine {
   public insertCampaign(campaign: Campaign) {
     this.data.campaigns.unshift(campaign);
     this.persist();
+    cloudFirestore.saveDocument('campaigns', campaign.id, campaign).catch(() => {});
     return campaign;
   }
 
@@ -633,6 +666,7 @@ class DatabaseEngine {
     if (idx === -1) return null;
     this.data.campaigns[idx] = { ...this.data.campaigns[idx], ...patch, updated_at: new Date().toISOString() };
     this.persist();
+    cloudFirestore.saveDocument('campaigns', id, this.data.campaigns[idx]).catch(() => {});
     return this.data.campaigns[idx];
   }
 
@@ -682,6 +716,7 @@ class DatabaseEngine {
   public insertCampaignMessage(msg: CampaignMessage) {
     this.data.campaign_messages.unshift(msg);
     this.persist();
+    cloudFirestore.saveDocument('campaign_messages', msg.id, msg).catch(() => {});
     return msg;
   }
 
@@ -724,9 +759,11 @@ class DatabaseEngine {
         camp.status = 'Completed';
         camp.completed_at = new Date().toISOString();
       }
+      cloudFirestore.saveDocument('campaigns', camp.id, camp).catch(() => {});
     }
 
     this.persist();
+    cloudFirestore.saveDocument('campaign_messages', msg.id, msg).catch(() => {});
     return msg;
   }
 
@@ -771,13 +808,53 @@ class DatabaseEngine {
       this.data.whatsapp_accounts.push(account);
     }
     this.persist();
+    cloudFirestore.saveDocument('whatsapp_accounts', account.id, account).catch(() => {});
     return account;
+  }
+
+  // Tech Provider Configuration (Global Platform App Secret & Webhook)
+  public getTechProviderConfig(): TechProviderConfig {
+    if (!this.data.tech_provider) {
+      this.data.tech_provider = {
+        app_id: '1052719167920294',
+        app_secret: '6912a015ebb9131b92b23094e09825d1',
+        app_name: 'Official WhatsApp Tech Provider',
+        webhook_verify_token: 'meta_verify_token_secure_2026',
+        is_configured: true,
+        updated_at: new Date().toISOString()
+      };
+      this.persist();
+    }
+    return this.data.tech_provider;
+  }
+
+  public updateTechProviderConfig(patch: Partial<TechProviderConfig>): TechProviderConfig {
+    const current = this.getTechProviderConfig();
+    this.data.tech_provider = {
+      ...current,
+      ...patch,
+      is_configured: true,
+      updated_at: new Date().toISOString()
+    };
+    this.persist();
+    return this.data.tech_provider;
+  }
+
+  public getEffectiveAppSecret(clientId?: string): string {
+    if (clientId) {
+      const wa = this.getWhatsAppAccount(clientId);
+      if (wa?.app_secret && wa.app_secret.trim()) {
+        return wa.app_secret.trim();
+      }
+    }
+    return (this.data.tech_provider?.app_secret || process.env.META_APP_SECRET || '').trim();
   }
 
   // Credits & Ledger
   public addCreditTransaction(txn: CreditTransaction) {
     this.data.credit_transactions.unshift(txn);
     this.persist();
+    cloudFirestore.saveDocument('credit_transactions', txn.id, txn).catch(() => {});
     return txn;
   }
 
@@ -908,6 +985,7 @@ class DatabaseEngine {
     if (!this.data.chat_messages) this.data.chat_messages = [];
     this.data.chat_messages.push(msg);
     this.persist();
+    cloudFirestore.saveDocument('chat_messages', msg.id, msg).catch(() => {});
     return msg;
   }
 
@@ -936,10 +1014,12 @@ class DatabaseEngine {
     if (idx >= 0) {
       this.data.templates[idx] = { ...this.data.templates[idx], ...tpl };
       this.persist();
+      cloudFirestore.saveDocument('templates', this.data.templates[idx].id, this.data.templates[idx]).catch(() => {});
       return this.data.templates[idx];
     } else {
       this.data.templates.unshift(tpl);
       this.persist();
+      cloudFirestore.saveDocument('templates', tpl.id, tpl).catch(() => {});
       return tpl;
     }
   }

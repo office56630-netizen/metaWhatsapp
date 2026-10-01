@@ -14,7 +14,9 @@ import {
   KeyRound,
   ShieldCheck,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  Radio,
+  Database
 } from 'lucide-react';
 import { api } from '../../api';
 
@@ -72,6 +74,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate }) 
         </div>
 
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => onNavigate('whatsapp_setup')}
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer"
+          >
+            <Radio className="w-4 h-4 text-emerald-400" />
+            <span>Cloud API Setup</span>
+          </button>
           <button
             onClick={() => onNavigate('chat')}
             className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer"
@@ -349,6 +358,22 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate }) 
               <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>Dedicated tenant token isolation is actively enforced.</span>
             </div>
+
+            <button
+              onClick={() => onNavigate('whatsapp_setup')}
+              className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            >
+              <Radio className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Configure WhatsApp Cloud API</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('cloud_storage')}
+              className="w-full flex items-center justify-center space-x-2 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Google Cloud Storage & Records</span>
+            </button>
           </div>
         </div>
       </div>

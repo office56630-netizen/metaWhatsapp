@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "client": {
+      "title": "Client",
+      "description": "Tenant business account on the WhatsApp platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique client ID e.g. CLT-00001" },
+        "company_name": { "type": "string", "description": "Company or business name" },
+        "email": { "type": "string", "format": "email", "description": "Client admin email" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "plan_id": { "type": "string", "description": "Subscription plan ID" },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "marketing_credits": { "type": "number", "description": "Marketing credits balance" },
+        "utility_credits": { "type": "number", "description": "Utility credits balance" },
+        "campaign_message_limit": { "type": "number", "description": "Campaign message limit" },
+        "api_token": { "type": "string", "description": "Client REST API token" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "company_name", "status"]
+    },
+    "whatsapp_account": {
+      "title": "WhatsAppAccount",
+      "description": "Meta WhatsApp Business Cloud API configuration and credentials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Account document ID" },
+        "client_id": { "type": "string", "description": "Associated client ID" },
+        "phone_number": { "type": "string", "description": "Display WhatsApp phone number" },
+        "display_name": { "type": "string", "description": "Verified display business name" },
+        "phone_number_id": { "type": "string", "description": "Meta Phone Number ID" },
+        "waba_id": { "type": "string", "description": "Meta WhatsApp Business Account ID" },
+        "business_id": { "type": "string", "description": "Meta Business Manager ID" },
+        "meta_access_token": { "type": "string", "description": "Permanent System User access token" },
+        "app_secret": { "type": "string", "description": "Meta App Secret for proof calculation" },
+        "webhook_verify_token": { "type": "string", "description": "Verification challenge token" },
+        "quality_rating": { "type": "string", "enum": ["GREEN", "YELLOW", "RED", "UNKNOWN"] },
+        "status": { "type": "string", "enum": ["CONNECTED", "DISCONNECTED", "SANDBOX"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "status"]
+    },
+    "campaign": {
+      "title": "Campaign",
+      "description": "Broadcast campaign entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Campaign ID" },
+        "client_id": { "type": "string", "description": "Owner client ID" },
+        "name": { "type": "string", "description": "Campaign title" },
+        "template_id": { "type": "string", "description": "Meta template ID used" },
+        "template_name": { "type": "string", "description": "Meta template name" },
+        "status": { "type": "string", "enum": ["Draft", "Scheduled", "Running", "Completed", "Paused", "Cancelled", "Failed"] },
+        "target_group_id": { "type": "string", "description": "Contact group ID" },
+        "total_recipients": { "type": "number", "description": "Total target audience" },
+        "sent_count": { "type": "number", "description": "Count sent" },
+        "delivered_count": { "type": "number", "description": "Count delivered" },
+        "read_count": { "type": "number", "description": "Count read" },
+        "failed_count": { "type": "number", "description": "Count failed" },
+        "credit_type": { "type": "string", "enum": ["marketing", "utility"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "completed_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "name", "status"]
+    },
+    "campaign_message": {
+      "title": "CampaignMessage",
+      "description": "Individual recipient message record in a campaign",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Message record ID" },
+        "client_id": { "type": "string", "description": "Client ID" },
+        "campaign_id": { "type": "string", "description": "Campaign ID" },
+        "contact_id": { "type": "string", "description": "Contact ID" },
+        "recipient_name": { "type": "string", "description": "Recipient name" },
+        "phone": { "type": "string", "description": "E.164 phone number" },
+        "template_name": { "type": "string", "description": "Template name" },
+        "credit_type": { "type": "string", "enum": ["marketing", "utility"] },
+        "rendered_body": { "type": "string", "description": "Rendered message text" },
+        "message_id": { "type": "string", "description": "Meta WAMID" },
+        "status": { "type": "string", "enum": ["Queued", "Sent", "Delivered", "Read", "Failed"] },
+        "error_code": { "type": "string", "description": "Meta error code if failed" },
+        "error_message": { "type": "string", "description": "Meta error explanation" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "sent_at": { "type": "string", "format": "date-time" },
+        "delivered_at": { "type": "string", "format": "date-time" },
+        "read_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "campaign_id", "phone", "status"]
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Audience contact profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Contact ID" },
+        "client_id": { "type": "string", "description": "Client ID" },
+        "name": { "type": "string", "description": "Full name" },
+        "phone": { "type": "string", "description": "E.164 phone" },
+        "group_ids": { "type": "array", "description": "Associated contact group IDs" },
+        "status": { "type": "string", "enum": ["active", "unsubscribed", "invalid"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "phone", "status"]
+    },
+    "template": {
+      "title": "WhatsAppTemplate",
+      "description": "Approved Meta WhatsApp message template",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Template document ID" },
+        "client_id": { "type": "string", "description": "Client ID" },
+        "name": { "type": "string", "description": "Meta template name" },
+        "category": { "type": "string", "enum": ["MARKETING", "UTILITY", "AUTHENTICATION"] },
+        "language": { "type": "string", "description": "Template language code" },
+        "status": { "type": "string", "enum": ["APPROVED", "PENDING", "REJECTED"] },
+        "body_text": { "type": "string", "description": "Template body text with variables" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "name", "category", "status"]
+    },
+    "chat_message": {
+      "title": "ChatMessage",
+      "description": "Live chat conversation message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "WAMID or message ID" },
+        "client_id": { "type": "string", "description": "Client ID" },
+        "customer_phone": { "type": "string", "description": "Customer phone number" },
+        "customer_name": { "type": "string", "description": "Customer display name" },
+        "sender": { "type": "string", "enum": ["business", "customer"] },
+        "message_type": { "type": "string", "enum": ["text", "template", "image", "document"] },
+        "text": { "type": "string", "description": "Message text content" },
+        "status": { "type": "string", "enum": ["Sent", "Delivered", "Read", "Failed"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "customer_phone", "sender", "status"]
+    },
+    "credit_transaction": {
+      "title": "CreditTransaction",
+      "description": "Credit balance ledger record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction ID" },
+        "client_id": { "type": "string", "description": "Client ID" },
+        "credit_type": { "type": "string", "enum": ["marketing", "utility"] },
+        "transaction_type": { "type": "string", "description": "Type of transaction" },
+        "amount": { "type": "number", "description": "Amount credited or deducted" },
+        "balance_before": { "type": "number", "description": "Prior balance" },
+        "balance_after": { "type": "number", "description": "Resulting balance" },
+        "description": { "type": "string", "description": "Ledger memo" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "client_id", "credit_type", "amount", "created_at"]
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "client",
+      "description": "Tenant client business accounts"
+    },
+    "/whatsapp_accounts/{accountId}": {
+      "schema": "whatsapp_account",
+      "description": "WhatsApp Cloud API credentials"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "campaign",
+      "description": "Broadcast campaigns"
+    },
+    "/campaign_messages/{messageId}": {
+      "schema": "campaign_message",
+      "description": "Campaign dispatch and delivery records"
+    },
+    "/contacts/{contactId}": {
+      "schema": "contact",
+      "description": "Audience contacts"
+    },
+    "/templates/{templateId}": {
+      "schema": "template",
+      "description": "Approved Meta templates"
+    },
+    "/chat_messages/{chatId}": {
+      "schema": "chat_message",
+      "description": "Live chat and customer messages"
+    },
+    "/credit_transactions/{txnId}": {
+      "schema": "credit_transaction",
+      "description": "Credit ledger transactions"
+    }
+  }
+}

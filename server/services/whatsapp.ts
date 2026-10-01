@@ -17,10 +17,11 @@ export interface MetaMessageResponse {
 export class WhatsAppCloudApiService {
   /**
    * Generates appsecret_proof for Meta Graph API calls when App Secret Proof is enabled in Meta App Settings.
+   * As a Tech Provider, if tenant doesn't provide a custom secret, the platform's global Tech Provider App Secret is used.
    * appsecret_proof = hash_hmac('sha256', access_token, app_secret)
    */
-  public static getAppSecretProof(accessToken: string, appSecret?: string): string | null {
-    const cleanSecret = (appSecret || process.env.META_APP_SECRET || '').trim();
+  public static getAppSecretProof(accessToken: string, appSecret?: string, clientId?: string): string | null {
+    const cleanSecret = (appSecret && appSecret.trim() ? appSecret : db.getEffectiveAppSecret(clientId)).trim();
     const cleanToken = (accessToken || '').trim();
     if (!cleanSecret || !cleanToken) return null;
     return crypto.createHmac('sha256', cleanSecret).update(cleanToken).digest('hex');
@@ -33,7 +34,8 @@ export class WhatsAppCloudApiService {
     endpoint: string,
     accessToken: string,
     appSecret?: string,
-    extraParams?: Record<string, string>
+    extraParams?: Record<string, string>,
+    clientId?: string
   ): string {
     const cleanEndpoint = endpoint.replace(/^\/+/, '');
     const url = new URL(`https://graph.facebook.com/v21.0/${cleanEndpoint}`);
@@ -44,7 +46,7 @@ export class WhatsAppCloudApiService {
         }
       }
     }
-    const proof = this.getAppSecretProof(accessToken, appSecret);
+    const proof = this.getAppSecretProof(accessToken, appSecret, clientId);
     if (proof) {
       url.searchParams.set('appsecret_proof', proof);
     }
@@ -73,9 +75,7 @@ export class WhatsAppCloudApiService {
 
     const effectiveWabaId = (wabaId || waAccount?.waba_id || '').trim();
     const effectiveToken = (metaAccessToken || waAccount?.meta_access_token || '').trim();
-    const effectiveAppSecret = (
-      (appSecret && appSecret.trim()) ? appSecret.trim() : (waAccount?.app_secret || process.env.META_APP_SECRET || '')
-    ).trim();
+    const effectiveAppSecret = (appSecret && appSecret.trim() ? appSecret : db.getEffectiveAppSecret(clientId)).trim();
 
     if (!effectiveWabaId || !effectiveToken) {
       return {
@@ -99,10 +99,7 @@ export class WhatsAppCloudApiService {
         updatedWa.meta_access_token = effectiveToken;
         needsUpdate = true;
       }
-      if (appSecret !== undefined && appSecret.trim() && appSecret.trim() !== (waAccount.app_secret || '')) {
-        updatedWa.app_secret = appSecret.trim();
-        needsUpdate = true;
-      } else if (!updatedWa.app_secret && effectiveAppSecret) {
+      if (appSecret !== undefined && appSecret.trim() !== (waAccount.app_secret || '')) {
         updatedWa.app_secret = effectiveAppSecret;
         needsUpdate = true;
       }
@@ -288,7 +285,9 @@ export class WhatsAppCloudApiService {
         const url = this.buildGraphUrl(
           `${waAccount.phone_number_id}/messages`,
           waAccount.meta_access_token,
-          waAccount.app_secret
+          waAccount.app_secret,
+          undefined,
+          clientId
         );
         const res = await fetch(url, {
           method: 'POST',
@@ -421,7 +420,9 @@ export class WhatsAppCloudApiService {
         const url = this.buildGraphUrl(
           `${waAccount.phone_number_id}/messages`,
           waAccount.meta_access_token,
-          waAccount.app_secret
+          waAccount.app_secret,
+          undefined,
+          clientId
         );
         const res = await fetch(url, {
           method: 'POST',
@@ -632,9 +633,8 @@ export class WhatsAppCloudApiService {
           // Resolve clientId from phone_number_id or waba_id
           const phoneId = value.metadata?.phone_number_id;
           const matchedAccount = rawDb.whatsapp_accounts.find(
-            (w) => (phoneId && String(w.phone_number_id).trim() === String(phoneId).trim()) ||
-                   (wabaId && String(w.waba_id).trim() === String(wabaId).trim())
-          ) || rawDb.whatsapp_accounts[0];
+            (w) => (phoneId && w.phone_number_id === phoneId) || (wabaId && w.waba_id === wabaId)
+          );
           const resolvedClientId = matchedAccount?.client_id || clientIdParam || 'CLT-00001';
 
           // 1. Process Message Status Updates (sent -> delivered -> read -> failed)
@@ -689,67 +689,22 @@ export class WhatsAppCloudApiService {
           const contactsInfo = value.contacts || [];
 
           for (const incMsg of incomingMessages) {
-            const rawFrom = String(incMsg.from || '');
-            const senderPhone = rawFrom ? (rawFrom.startsWith('+') ? rawFrom : '+' + rawFrom) : '';
-            if (!senderPhone) continue;
-
+            const senderPhone = incMsg.from ? (incMsg.from.startsWith('+') ? incMsg.from : '+' + incMsg.from) : '';
+            const msgBody = incMsg.text?.body || (incMsg.type === 'button' ? incMsg.button?.text : `[${incMsg.type || 'message'}]`);
             const msgId = incMsg.id || `wamid.inc_${crypto.randomBytes(8).toString('hex')}`;
-
-            // Deduplication check
-            const alreadyExists = rawDb.chat_messages?.some((m) => m.id === msgId);
-            if (alreadyExists) continue;
-
-            let msgBody = incMsg.text?.body;
-            if (!msgBody) {
-              if (incMsg.type === 'interactive') {
-                msgBody = incMsg.interactive?.button_reply?.title || incMsg.interactive?.list_reply?.title || '[Interactive choice]';
-              } else if (incMsg.type === 'button') {
-                msgBody = incMsg.button?.text || '[Button]';
-              } else if (incMsg.type === 'image') {
-                msgBody = incMsg.image?.caption ? `📷 ${incMsg.image.caption}` : '📷 [Photo]';
-              } else if (incMsg.type === 'document') {
-                msgBody = incMsg.document?.caption || incMsg.document?.filename || '📄 [Document]';
-              } else if (incMsg.type === 'audio' || incMsg.type === 'voice') {
-                msgBody = '🎵 [Audio voice message]';
-              } else if (incMsg.type === 'video') {
-                msgBody = incMsg.video?.caption ? `🎥 ${incMsg.video.caption}` : '🎥 [Video]';
-              } else if (incMsg.type === 'location') {
-                msgBody = `📍 [Location: ${incMsg.location?.name || `${incMsg.location?.latitude}, ${incMsg.location?.longitude}`}]`;
-              } else if (incMsg.type === 'reaction') {
-                msgBody = `Reacted: ${incMsg.reaction?.emoji || '👍'}`;
-              } else {
-                msgBody = `[${incMsg.type || 'message'}]`;
-              }
-            }
-
             const msgTime = incMsg.timestamp
               ? new Date(parseInt(incMsg.timestamp, 10) * 1000).toISOString()
               : new Date().toISOString();
 
-            const contactProfile = contactsInfo.find((c: any) => c.wa_id === rawFrom || c.wa_id === senderPhone.replace(/\D/g, '')) || contactsInfo[0];
-            const profileName = contactProfile?.profile?.name || undefined;
-
-            let existingContact = db.findContactByPhone(resolvedClientId, senderPhone);
-
-            // Auto-create contact if not found
-            if (!existingContact) {
-              existingContact = db.insertContact({
-                id: `CNT-${crypto.randomBytes(4).toString('hex').toUpperCase()}`,
-                client_id: resolvedClientId,
-                name: profileName || `Customer (${senderPhone.slice(-4)})`,
-                phone: senderPhone,
-                status: 'active',
-                created_at: msgTime,
-                updated_at: msgTime
-              });
-            }
+            const profileName = contactsInfo[0]?.profile?.name || undefined;
+            const existingContact = senderPhone ? db.findContactByPhone(resolvedClientId, senderPhone) : null;
 
             const inboundChat: ChatMessage = {
               id: msgId,
               client_id: resolvedClientId,
-              contact_id: existingContact.id,
+              contact_id: existingContact?.id || null,
               customer_phone: senderPhone,
-              customer_name: existingContact.name || profileName || `Customer (${senderPhone.slice(-4)})`,
+              customer_name: existingContact?.name || profileName || `Customer (${senderPhone.slice(-4)})`,
               sender: 'customer',
               message_type: 'text',
               text: msgBody,
@@ -794,24 +749,12 @@ export class WhatsAppCloudApiService {
   ) {
     if (hubMode === 'subscribe') {
       const accounts = db.getRawData().whatsapp_accounts;
-      const cleanToken = (hubVerifyToken || '').trim();
-
       const matched =
-        !cleanToken ||
-        accounts.some((a) => a.webhook_verify_token === cleanToken) ||
-        cleanToken === clientVerifyToken ||
-        cleanToken === 'meta_verify_token_secure_2026' ||
-        cleanToken === 'meta_whatsapp_default_token' ||
-        cleanToken === (process.env.META_WEBHOOK_VERIFY_TOKEN || '').trim();
+        accounts.some((a) => a.webhook_verify_token === hubVerifyToken) ||
+        hubVerifyToken === clientVerifyToken ||
+        hubVerifyToken === 'meta_whatsapp_default_token';
 
       if (matched) {
-        return { valid: true, challenge: hubChallenge };
-      }
-
-      // If user typed a custom token in Meta, accept and save it so setup succeeds seamlessly
-      if (cleanToken.length > 0 && accounts.length > 0) {
-        accounts[0].webhook_verify_token = cleanToken;
-        db.flush();
         return { valid: true, challenge: hubChallenge };
       }
     }
